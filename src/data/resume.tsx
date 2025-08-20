@@ -183,6 +183,7 @@ export const DATA = {
       ],
       links: [],
       image: "",
+      video: "",
     },
     {
       title: "Computer Science NEA Project",
