@@ -11,6 +11,28 @@ export const DATA = {
     "Aspiring Full-Stack Developer focused on building scalable, practical applications.",
   summary:
     "After completing my A-levels in Mathematics, Further Mathematics, and Computer Science (with full marks on the CS NEA project), I dove into professional development through certifications and real-world work. I earned the IBM Back-End Development Specialization on Coursera and completed Udemy courses in Python, full-stack web development, and web technologies. At INK Design Studio, I built two major applications from scratch: Create More (an ERP tool for project management) and FileTank (a multi-tenant file sharing platform). I'm based in London and looking to leverage my practical skills in junior full-stack or software engineering roles.",
+  workExperience: [
+    {
+      company: "INK Design Studio",
+      role: "Software Engineer (Promoted from Programming Intern)",
+      period: "Feb 2024 - Present",
+      highlights: [
+        "Solo-developed Create More ERP managing 2000+ projects with Next.js/React/TypeScript and Express/Node.js/Sequelize backend",
+        "Created FileTank file sharing platform with Stripe billing, websockets, and multi-tenant architecture",
+        "Implemented LDAP/JWT authentication, RBAC, and CI/CD with GitHub Actions"
+      ]
+    },
+    {
+      company: "Fusion Lifestyle",
+      role: "Lifeguard",
+      period: "Mar 2022 - Dec 2022",
+      highlights: [
+        "Ensured safety in high-pressure environments developing problem-solving and team communication skills",
+        "Maintained precise records and protocols for secure implementations",
+        "Built transferable skills for agile development and client interactions"
+      ]
+    }
+  ],
   avatarUrl: "/me.png",
   skills: [
     "JavaScript",
@@ -51,14 +73,14 @@ export const DATA = {
     social: {
       GitHub: {
         name: "GitHub",
-        url: "#",
+        url: "https://github.com/zdravkodanailov7",
         icon: Icons.github,
 
         navbar: true,
       },
       LinkedIn: {
         name: "LinkedIn",
-        url: "#",
+        url: "www.linkedin.com/in/zdravko-danailov-0b37a525b",
         icon: Icons.linkedin,
 
         navbar: true,
@@ -111,16 +133,16 @@ export const DATA = {
       href: "#",
       degree: "A-Levels in Mathematics, Further Mathematics, Computer Science",
       logoUrl: "",
-      start: "2023",
-      end: "2025",
+      start: "Sep 2021",
+      end: "Jun 2023",
     },
     {
       school: "Enfield Grammar School",
       href: "#",
       degree: "GCSEs (10 subjects), including Mathematics (9), Combined Science (9/9), Computer Science (8)",
       logoUrl: "",
-      start: "2018",
-      end: "2023",
+      start: "Sep 2016",
+      end: "Jul 2021",
     },
     {
       school: "IBM Back-End Development Specialization (Coursera)",
@@ -186,13 +208,13 @@ export const DATA = {
       video: "",
     },
     {
-      title: "Computer Science NEA Project",
+      title: "Goosey",
       href: "#",
-      dates: "2024 - 2025",
+      dates: "2024",
       active: false,
       description:
-        "A-level project earning full marks (75/75); developed software solution with database integration; explored algorithms, UI design, validation, and performance optimization.",
-      technologies: ["Python", "JavaScript", "Databases"],
+        "AI-powered chatbot built with Microsoft Bot Framework and OpenAI integration; features Microsoft Graph API for enhanced functionality and Node.js backend for scalable deployment.",
+      technologies: ["Node.js", "Bot Framework", "OpenAI", "Microsoft Graph"],
       links: [],
       image: "",
       video: "",
