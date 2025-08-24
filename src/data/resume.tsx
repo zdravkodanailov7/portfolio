@@ -97,7 +97,7 @@ export const DATA = {
 
   work: [
     {
-      company: "INK Design Studio",
+      company: "INK",
       href: "#",
       badges: [],
       location: "London, UK",
