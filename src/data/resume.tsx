@@ -10,14 +10,14 @@ export const DATA = {
   description:
     "Aspiring Full-Stack Developer focused on building scalable, practical applications.",
   summary:
-    "After completing my A-levels in Mathematics, Further Mathematics, and Computer Science (with full marks on the CS NEA project), I dove into professional development through certifications and real-world work. I earned the IBM Back-End Development Specialization on Coursera and completed Udemy courses in Python, full-stack web development, and web technologies. At INK Design Studio, I built two major applications from scratch: Create More (an ERP tool for project management) and FileTank (a multi-tenant file sharing platform). I'm based in London and looking to leverage my practical skills in junior full-stack or software engineering roles.",
+    "After completing my A-levels in Mathematics, Further Mathematics, and Computer Science (with full marks on the CS NEA project), I dove into professional development through certifications and real-world work. I earned the IBM Back-End Development Specialization on Coursera and completed Udemy courses in Python, full-stack web development, and web technologies. At INK Design Studio, I built two major applications from scratch: CreateMore (an ERP tool for project management) and FileTank (a multi-tenant file sharing platform). I'm based in London and looking to leverage my practical skills in junior full-stack or software engineering roles.",
   workExperience: [
     {
       company: "INK Design Studio",
       role: "Software Engineer (Promoted from Programming Intern)",
       period: "Feb 2024 - Present",
       highlights: [
-        "Solo-developed Create More ERP managing 2000+ projects with Next.js/React/TypeScript and Express/Node.js/Sequelize backend",
+        "Solo-developed CreateMore ERP managing 2000+ projects with Next.js/React/TypeScript and Express/Node.js/Sequelize backend",
         "Created FileTank file sharing platform with Stripe billing, websockets, and multi-tenant architecture",
         "Implemented LDAP/JWT authentication, RBAC, and CI/CD with GitHub Actions"
       ]
@@ -68,8 +68,8 @@ export const DATA = {
     { href: "/blog", icon: NotebookIcon, label: "Blog" },
   ],
   contact: {
-    email: "",
-    tel: "",
+    email: "zdravkodanailov7@gmail.com",
+    tel: "+44 7309025841",
     social: {
       GitHub: {
         name: "GitHub",
@@ -85,15 +85,9 @@ export const DATA = {
 
         navbar: true,
       },
-      Youtube: {
-        name: "Youtube",
-        url: "#",
-        icon: Icons.youtube,
-        navbar: true,
-      },
       email: {
         name: "Send Email",
-        url: "#",
+        url: "mailto:zdravkodanailov7@gmail.com",
         icon: Icons.email,
 
         navbar: false,
@@ -112,7 +106,7 @@ export const DATA = {
       start: "Feb 2024",
       end: "Present",
       description:
-        "Solo-developed Create More, managing 2000+ projects across two companies with 20+ daily users; built with Next.js/React/TypeScript/Tailwind frontend and Express/Node.js/Sequelize/MariaDB backend; handled multi-tenancy and optimized features like PDF generation (saving hundreds of hours) and archive processing (reducing retrieval time from days to minutes). Created FileTank, a scalable file sharing platform with pricing tiers; featured resumable uploads (50GB max), ZIP streaming, websockets for real-time updates, and Stripe billing; supported secure sharing with audit logs and cron jobs for cleanups. Implemented authentication (LDAP/JWT), RBAC, and devops with GitHub Actions/Playwright testing.",
+        "Solo-developed CreateMore, managing 2000+ projects across two companies with 20+ daily users; built with Next.js/React/TypeScript/Tailwind frontend and Express/Node.js/Sequelize/MariaDB backend; handled multi-tenancy and optimized features like PDF generation (saving hundreds of hours) and archive processing (reducing retrieval time from days to minutes). Created FileTank, a scalable file sharing platform with pricing tiers; featured resumable uploads (50GB max), ZIP streaming, websockets for real-time updates, and Stripe billing; supported secure sharing with audit logs and cron jobs for cleanups. Implemented authentication (LDAP/JWT), RBAC, and devops with GitHub Actions/Playwright testing.",
     },
     {
       company: "Fusion Lifestyle",
@@ -163,7 +157,7 @@ export const DATA = {
   ],
   projects: [
     {
-      title: "Create More",
+      title: "CreateMore",
       href: "#",
       dates: "Feb 2024 - Present",
       active: true,
@@ -183,7 +177,7 @@ export const DATA = {
         "LDAP",
       ],
       links: [],
-      image: "",
+      image: "/createmore.png",
       video: "",
     },
     {
@@ -204,7 +198,7 @@ export const DATA = {
         "Playwright",
       ],
       links: [],
-      image: "",
+      image: "/filetank.png",
       video: "",
     },
     {
@@ -217,7 +211,7 @@ export const DATA = {
       technologies: ["Node.js", "Bot Framework", "OpenAI", "Microsoft Graph"],
       links: [],
       image: "",
-      video: "",
+      video: "/goosey.mp4",
     },
   ],
   hackathons: [
