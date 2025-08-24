@@ -135,7 +135,7 @@ export const DATA = {
     {
       school: "Enfield Grammar School",
       href: "#",
-      degree: "GCSEs (10 subjects), including Mathematics (9), Combined Science (9/9), Computer Science (8)",
+      degree: "GCSEs (9 subjects), including Mathematics (9), Combined Science (9/9), Computer Science (8)",
       logoUrl: "/enfield_grammar.png",
       start: "Sep 2016",
       end: "Jul 2021",
@@ -166,7 +166,7 @@ export const DATA = {
   projects: [
     {
       title: "CreateMore",
-      href: "#",
+      href: "/blog/building-createmore",
       dates: "Sep 2024 - Present",
       active: true,
       description:
@@ -190,7 +190,7 @@ export const DATA = {
     },
     {
       title: "FileTank",
-      href: "#",
+      href: "/blog/developing-filetank",
       dates: "May 2025 - Present",
       active: true,
       description:
@@ -211,7 +211,7 @@ export const DATA = {
     },
     {
       title: "Goosey",
-      href: "#",
+      href: "/blog/creating-goosey",
       dates: "2025",
       active: false,
       description:
