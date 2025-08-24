@@ -91,6 +91,7 @@ export default function Page() {
                 title={education.school}
                 subtitle={education.degree}
                 period={`${education.start} - ${education.end}`}
+                description={education.description}
               />
             </BlurFade>
           ))}
@@ -168,9 +169,7 @@ export default function Page() {
                   className="text-blue-500 hover:underline"
                 >
                   LinkedIn
-                </Link>{" "}
-                and I&apos;ll respond whenever I can. I will ignore all
-                soliciting.
+                </Link>.
               </p>
             </div>
           </BlurFade>

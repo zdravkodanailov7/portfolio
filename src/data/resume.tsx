@@ -8,7 +8,7 @@ export const DATA = {
   location: "London, UK",
   locationLink: "https://www.google.com/maps/place/London,+UK",
   description:
-    "Aspiring Full-Stack Developer focused on building scalable, practical applications.",
+    "Full-Stack Developer focused on building scalable, practical applications.",
   summary:
     "After completing my A-levels in Mathematics, Further Mathematics, and Computer Science (with full marks on the CS NEA project), I dove into professional development through certifications and real-world work. I earned the IBM Back-End Development Specialization on Coursera and completed Udemy courses in Python, full-stack web development, and web technologies. At INK Design Studio, I built two major applications from scratch: CreateMore (an ERP tool for project management) and FileTank (a multi-tenant file sharing platform). I'm based in London and looking to leverage my practical skills in junior full-stack or software engineering roles.",
   workExperience: [
@@ -101,7 +101,7 @@ export const DATA = {
       href: "#",
       badges: [],
       location: "London, UK",
-      title: "Software Engineer (Promoted from Programming Intern)",
+      title: "Software Engineer",
       logoUrl: "/ink_cropped.png",
       start: "Feb 2024",
       end: "Present",
@@ -129,6 +129,8 @@ export const DATA = {
       logoUrl: "/ashmole_academy.jpg",
       start: "Sep 2021",
       end: "Jun 2023",
+      description:
+        "A-Levels in Mathematics, Further Mathematics, and Computer Science with full marks on the CS NEA project.",
     },
     {
       school: "Enfield Grammar School",
@@ -137,6 +139,8 @@ export const DATA = {
       logoUrl: "/enfield_grammar.png",
       start: "Sep 2016",
       end: "Jul 2021",
+      description:
+        "GCSEs (9 subjects), including Mathematics (9), Combined Science (9/9), Computer Science (8).",
     },
     {
       school: "IBM Back-End Development Specialization (Coursera)",
@@ -145,6 +149,8 @@ export const DATA = {
       logoUrl: "/ibm.png",
       start: "2023",
       end: "2023",
+      description:
+        "Completed the IBM Back-End Development Specialization on Coursera, covering Python/Django/SQL, containers (Docker/Kubernetes), microservices, security (OWASP), monitoring; web scraping, GitHub, Bash, NoSQL.",
     },
     {
       school: "Udemy Online Courses",
@@ -153,6 +159,8 @@ export const DATA = {
       logoUrl: "/udemy.png",
       start: "2023",
       end: "Present",
+      description:
+        "Completed the Udemy Online Courses, covering The Complete Python Bootcamp, The Complete Full-Stack Web Development Bootcamp, The Web Developer Bootcamp 2025.",
     },
   ],
   projects: [
@@ -204,7 +212,7 @@ export const DATA = {
     {
       title: "Goosey",
       href: "#",
-      dates: "2024",
+      dates: "2025",
       active: false,
       description:
         "AI-powered chatbot built with Microsoft Bot Framework and OpenAI integration; features Microsoft Graph API for enhanced functionality and Node.js backend for scalable deployment.",
