@@ -157,7 +157,7 @@ export const DATA = {
       href: "#",
       degree: "The Complete Python Bootcamp, The Complete Full-Stack Web Development Bootcamp, The Web Developer Bootcamp 2025",
       logoUrl: "/udemy.png",
-      start: "2023",
+      start: "2020",
       end: "Present",
       description:
         "Completed the Udemy Online Courses, covering The Complete Python Bootcamp, The Complete Full-Stack Web Development Bootcamp, The Web Developer Bootcamp 2025.",
