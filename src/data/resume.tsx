@@ -103,7 +103,7 @@ export const DATA = {
       location: "London, UK",
       title: "Software Engineer",
       logoUrl: "/ink_cropped.png",
-      start: "Feb 2024",
+      start: " 2024",
       end: "Present",
       description:
         "Solo-developed CreateMore, managing 2000+ projects across two companies with 20+ daily users; built with Next.js/React/TypeScript/Tailwind frontend and Express/Node.js/Sequelize/MariaDB backend; handled multi-tenancy and optimized features like PDF generation (saving hundreds of hours) and archive processing (reducing retrieval time from days to minutes). Created FileTank, a scalable file sharing platform with pricing tiers; featured resumable uploads (50GB max), ZIP streaming, websockets for real-time updates, and Stripe billing; supported secure sharing with audit logs and cron jobs for cleanups. Implemented authentication (LDAP/JWT), RBAC, and devops with GitHub Actions/Playwright testing.",
@@ -167,7 +167,7 @@ export const DATA = {
     {
       title: "CreateMore",
       href: "#",
-      dates: "Feb 2024 - Present",
+      dates: "Sep 2024 - Present",
       active: true,
       description:
         "Full-stack ERP for design studios; manages projects, invoicing, scheduling; built with Next.js/React, Express/Node.js, Sequelize/MariaDB; features LDAP auth, Bryntum Gantt, Puppeteer PDFs, Python archive processing; scaled to 2000+ projects and 20+ users, saving hundreds of hours on manual tasks.",
@@ -191,7 +191,7 @@ export const DATA = {
     {
       title: "FileTank",
       href: "#",
-      dates: "2024 - Present",
+      dates: "May 2025 - Present",
       active: true,
       description:
         "Multi-tenant secure file sharing SaaS with pricing tiers; supports workspaces, chunked uploads (50GB), ZIP downloads, websockets; Next.js/TanStack Query frontend, Express/Sequelize backend, Stripe billing; includes audit logs, cron cleanups, and Playwright testing.",

@@ -166,6 +166,7 @@ export default function Page() {
                 Want to connect? Just send me a direct message on{" "}
                 <Link
                   href={DATA.contact.social.LinkedIn.url}
+                  target="_blank"
                   className="text-blue-500 hover:underline"
                 >
                   LinkedIn
