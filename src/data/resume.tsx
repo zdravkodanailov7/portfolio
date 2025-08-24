@@ -176,13 +176,7 @@ export const DATA = {
         "Puppeteer",
         "LDAP",
       ],
-      links: [
-        {
-          title: "GitHub",
-          icon: <Icons.github className="h-4 w-4" />,
-          href: "https://github.com/zdravkodanailov7/createmore"
-        }
-      ],
+      links: [],
       image: "/createmore.png",
       video: "",
     },
