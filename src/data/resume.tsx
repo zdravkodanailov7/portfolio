@@ -3,14 +3,14 @@ import { HomeIcon, NotebookIcon } from "lucide-react";
 
 export const DATA = {
   name: "Zdravko Danailov",
-  initials: "ZN",
+  initials: "ZD",
   url: "https://www.zdravkodanailov.com/",
   location: "London, UK",
   locationLink: "https://www.google.com/maps/place/London,+UK",
   description:
     "Full-Stack Developer focused on building scalable, practical applications.",
   summary:
-    "After completing my A-levels in Mathematics, Further Mathematics, and Computer Science (with full marks on the CS NEA project), I dove into professional development through certifications and real-world work. I earned the IBM Back-End Development Specialization on Coursera and completed Udemy courses in Python, full-stack web development, and web technologies. At INK Design Studio, I built two major applications from scratch: CreateMore (an ERP tool for project management) and FileTank (a multi-tenant file sharing platform). I'm based in London and looking to leverage my practical skills in junior full-stack or software engineering roles.",
+    "After completing my A-levels in Mathematics, Further Mathematics, and Computer Science (with full marks on the CS NEA project), I dove into professional development through certifications and real-world work. I earned the IBM Back-End Development Specialisation on Coursera and completed Udemy courses in Python, full-stack web development, and web technologies. At INK Design Studio, I built two major applications from scratch: CreateMore (an ERP tool for project management) and FileTank (a multi-tenant file sharing platform). I'm based in London and looking to leverage my practical skills in junior full-stack or software engineering roles.",
   workExperience: [
     {
       company: "INK Design Studio",
@@ -56,8 +56,6 @@ export const DATA = {
     "GitHub Actions",
     "Playwright",
     "Jest",
-    "Docker",
-    "Kubernetes",
     "Linux Server Management",
     "WebSockets",
     "Stripe APIs",
@@ -106,7 +104,7 @@ export const DATA = {
       start: " 2024",
       end: "Present",
       description:
-        "Solo-developed CreateMore, managing 2000+ projects across two companies with 20+ daily users; built with Next.js/React/TypeScript/Tailwind frontend and Express/Node.js/Sequelize/MariaDB backend; handled multi-tenancy and optimized features like PDF generation (saving hundreds of hours) and archive processing (reducing retrieval time from days to minutes). Created FileTank, a scalable file sharing platform with pricing tiers; featured resumable uploads (50GB max), ZIP streaming, websockets for real-time updates, and Stripe billing; supported secure sharing with audit logs and cron jobs for cleanups. Implemented authentication (LDAP/JWT), RBAC, and devops with GitHub Actions/Playwright testing.",
+        "Solo-developed CreateMore, managing 2000+ projects across two companies with 20+ daily users; built with Next.js/React/TypeScript/Tailwind frontend and Express/Node.js/Sequelize/MariaDB backend; handled multi-tenancy and optimised features like PDF generation (saving hundreds of hours) and archive processing (reducing retrieval time from days to minutes). Created FileTank, a scalable file sharing platform with pricing tiers; featured resumable uploads (50GB max), ZIP streaming, websockets for real-time updates, and Stripe billing; supported secure sharing with audit logs and cron jobs for cleanups. Implemented authentication (LDAP/JWT), RBAC, and devops with GitHub Actions/Playwright testing.",
     },
     {
       company: "Fusion Lifestyle",
@@ -143,14 +141,14 @@ export const DATA = {
         "GCSEs (9 subjects), including Mathematics (9), Combined Science (9/9), Computer Science (8).",
     },
     {
-      school: "IBM Back-End Development Specialization (Coursera)",
+      school: "IBM Back-End Development Specialisation (Coursera)",
       href: "#",
       degree: "Completed Oct 2023 — Python/Django/SQL, containers (Docker/Kubernetes), microservices, security (OWASP), monitoring; web scraping, GitHub, Bash, NoSQL",
       logoUrl: "/ibm.png",
-      start: "2023",
-      end: "2023",
+      start: "Oct 2023",
+      end: "Dec 2023",
       description:
-        "Completed the IBM Back-End Development Specialization on Coursera, covering Python/Django/SQL, containers (Docker/Kubernetes), microservices, security (OWASP), monitoring; web scraping, GitHub, Bash, NoSQL.",
+        "Completed the IBM Back-End Development Specialisation on Coursera, covering Python/Django/SQL, containers (Docker/Kubernetes), microservices, security (OWASP), monitoring; web scraping, GitHub, Bash, NoSQL.",
     },
     {
       school: "Udemy Online Courses",
@@ -213,7 +211,7 @@ export const DATA = {
       title: "Goosey",
       href: "/blog/creating-goosey",
       dates: "2025",
-      active: false,
+      active: true,
       description:
         "AI-powered chatbot built with Microsoft Bot Framework and OpenAI integration; features Microsoft Graph API for enhanced functionality and Node.js backend for scalable deployment.",
       technologies: ["Node.js", "Bot Framework", "OpenAI", "Microsoft Graph"],
