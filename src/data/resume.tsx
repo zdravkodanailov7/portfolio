@@ -164,7 +164,7 @@ export const DATA = {
   projects: [
     {
       title: "CreateMore",
-      href: "/blog/building-createmore",
+      href: "/blog/createmore",
       dates: "Sep 2024 - Present",
       active: true,
       description:
@@ -188,7 +188,7 @@ export const DATA = {
     },
     {
       title: "FileTank",
-      href: "/blog/developing-filetank",
+      href: "/blog/filetank",
       dates: "May 2025 - Present",
       active: true,
       description:
@@ -209,7 +209,7 @@ export const DATA = {
     },
     {
       title: "Goosey",
-      href: "/blog/creating-goosey",
+      href: "/blog/goosey",
       dates: "2025",
       active: true,
       description:
