@@ -183,7 +183,7 @@ export const DATA = {
         "LDAP",
       ],
       links: [],
-      image: "/createmore.png",
+      image: "/content/createmore/thumb-createmore.png",
       video: "",
     },
     {

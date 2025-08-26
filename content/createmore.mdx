@@ -1,0 +1,667 @@
+---
+title: "Building CreateMore: A Full-Stack ERP System for Creative Agencies"
+publishedAt: "2025-08-27"
+summary: "Deep dive into CreateMore, a comprehensive ERP application I built solo to streamline project management, invoicing, team scheduling, and resource planning for design studios. Explore the architecture, challenges, and technical decisions behind this production system."
+---
+
+<img src="/content/createmore/createmore.png" alt="CreateMore Dashboard" style="width: 100%; min-width: 800px; height: auto;" />
+
+## Table of Contents
+
+1. [Introduction](#introduction)
+2. [The Challenge](#the-challenge)
+3. [Architecture Overview](#architecture-overview)
+4. [Core Features Deep Dive](#core-features-deep-dive)
+   - [1. Project Management & Gantt Charts](#1-project-management--gantt-charts)
+   - [2. Resource Scheduling System](#2-resource-scheduling-system)
+   - [3. Timesheet Management](#3-timesheet-management)
+   - [4. Invoice Generation & PDF Creation](#4-invoice-generation--pdf-creation)
+   - [5. Automated Email & Notification System](#5-automated-email--notification-system)
+   - [6. CAF File Management & Search](#6-caf-file-management--search)
+   - [7. Comprehensive Expense Management](#7-comprehensive-expense-management)
+   - [8. Skills Survey & Analytics](#8-skills-survey--analytics)
+   - [9. Advanced Holiday Management](#9-advanced-holiday-management)
+   - [10. Authentication & Authorization](#10-authentication--authorization)
+5. [Database Design](#database-design)
+6. [Technical Challenges & Solutions](#technical-challenges--solutions)
+7. [Development Workflow](#development-workflow)
+8. [Performance Optimisations](#performance-optimisations)
+9. [Deployment & Infrastructure](#deployment--infrastructure)
+10. [Lessons Learned](#lessons-learned)
+11. [Multi-Tenant Architecture](#multi-tenant-architecture)
+12. [Impact & Results](#impact--results)
+13. [Future Enhancements](#future-enhancements)
+14. [Conclusion](#conclusion)
+
+## Introduction
+
+CreateMore is a comprehensive ERP (Enterprise Resource Planning) system I developed solo for creative agencies and design studios. The project began in September 2024 when [weareink.co.uk](https://weareink.co.uk) needed a massive update to replace their archaic existing system. What started as a targeted solution has evolved into a full-featured business management platform that I continue to maintain and improve to this day.
+
+## The Challenge
+
+Creative agencies face unique operational challenges:
+- Complex project workflows with multiple stakeholders
+- Resource scheduling across diverse skill sets  
+- Multi-currency invoicing for international clients
+- Time tracking with varying daily rates per team member
+- Holiday management with hierarchical approval systems
+- Expense tracking and reimbursement workflows
+- Document generation and archival
+
+Existing solutions had way too many features we didn't need - we required a much lighter, targeted approach with only the specific functionality our workflows demanded. This led me to build CreateMore as a tailored solution.
+
+## Architecture Overview
+
+CreateMore follows a modern full-stack architecture with clear separation of concerns:
+
+### Backend Architecture
+- **Framework**: Node.js with Express.js
+- **Database**: MariaDB with Sequelize ORM
+- **Authentication**: JWT tokens with LDAP integration
+- **File Storage**: Local file system with structured archival
+- **PDF Generation**: Puppeteer for dynamic document creation
+- **Background Jobs**: Node-cron for scheduled tasks
+- **API Design**: RESTful endpoints with comprehensive validation
+
+### Frontend Architecture  
+- **Framework**: Next.js with App Router
+- **Styling**: Tailwind CSS with custom design system
+- **State Management**: React Context API for global state
+- **UI Components**: Custom component library built on Radix UI and shadcn
+- **Scheduling**: Bryntum Scheduler for resource planning
+- **Project Management**: Bryntum Gantt for project timelines
+- **Authentication**: Session-based with automatic token refresh
+
+## Core Features Deep Dive
+
+### 1. Project Management & Gantt Charts
+
+The project management system is built around a sophisticated Gantt chart implementation:
+
+```javascript
+// Gantt configuration with custom validation
+const projectConfig = useMemo(() => ({
+    manuallySchedule: true,
+    autoSetConstraints: false,
+    milestoneLayoutMode: 'manual',
+    transport: {
+        load: {
+            url: `${process.env.NEXT_PUBLIC_API_URL}/api/gantt/data/${activeProject?.id}`,
+            transform: {
+                responseSuccess: ({ response }) => {
+                    // Transform resource images to include full URL path
+                    if (response.resources?.rows) {
+                        response.resources.rows = response.resources.rows.map(resource => {
+                            if (resource.image) {
+                                return {
+                                    ...resource,
+                                    imageUrl: `${process.env.NEXT_PUBLIC_API_URL}/uploads/${resource.image}`
+                                };
+                            }
+                            return resource;
+                        });
+                    }
+                    return response;
+                }
+            }
+        },
+        sync: {
+            url: `${process.env.NEXT_PUBLIC_API_URL}/api/gantt/sync/${activeProject?.id}`
+        }
+    }
+}), [activeProject?.id]);
+```
+
+Key features include:
+- **Budget Validation**: Real-time checking against project budgets
+- **Milestone Management**: Fixed date milestones with constraint prevention  
+- **Resource Assignment**: Team members with daily rates and availability
+- **Progress Tracking**: Visual progress indicators and completion percentages
+
+### 2. Resource Scheduling System
+
+The resource scheduler provides a calendar-based view for team allocation with a sophisticated Bryntum Scheduler implementation that allows managers to visualise and plan resource allocation across multiple projects and time periods.
+
+Features include:
+- **Multi-Project Views**: Switch between different project contexts
+- **Holiday Management**: Annual leave, public holidays, and TOIL tracking
+- **Hierarchical Permissions**: Three-tier system with managers, team leaders, and team members
+- **Colour Coding**: Visual distinction between project types
+- **Drag-and-Drop**: Intuitive event creation and modification
+
+### 3. Timesheet Management
+
+The timesheet system handles complex time tracking requirements:
+
+```javascript
+// Weekly timesheet data processing
+const processWeekData = (allData, dateRange) => {
+    const selectedWeek = getISOWeek(dateRange.startDate);
+    const selectedYear = getYear(dateRange.startDate);
+
+    const filteredData = allData.map((member) => {
+        const timesheetByDay = {};
+        weekDays.forEach((day) => {
+            timesheetByDay[day.dayKey] = 0;
+        });
+
+        const memberTimesheets = Array.isArray(member.data) ? member.data : [];
+        
+        memberTimesheets.forEach((entry) => {
+            const entryWeek = parseInt(entry.week);
+            const entryYear = parseInt(entry.year);
+
+            if (entryWeek === selectedWeek && entryYear === selectedYear) {
+                weekDays.forEach((day) => {
+                    const dayKey = day.dayKey;
+                    const hours = parseFloat(entry[dayKey]) || 0;
+                    timesheetByDay[dayKey] += hours;
+                });
+            }
+        });
+
+        const total = Object.values(timesheetByDay).reduce((a, b) => a + b, 0);
+        return {
+            name: member.memberName,
+            ...timesheetByDay,
+            total,
+        };
+    });
+
+    setProcessedData(filteredData);
+};
+```
+
+Features include:
+- **Weekly Views**: ISO week-based time tracking
+- **Project Assignment**: Link time entries to specific projects and tasks
+- **TOIL Calculation**: Automatic overtime tracking and accrual
+- **Validation**: Business rule enforcement for maximum hours
+- **Reporting**: Aggregate views for management oversight
+
+### 4. Invoice Generation & PDF Creation
+
+Dynamic invoice generation uses Puppeteer for pixel-perfect PDFs:
+
+```javascript
+export const downloadExpensePDF = async (req) => {
+    const { expenseSheetId, selectedPersonName, pdfName } = req.body;
+    
+    // Fetch expense data with relationships
+    const expenses = await ExpenseEntry.findAll({
+        where: { expense_sheet_id: expenseSheetId },
+        include: [
+            { model: Project, as: 'project' },
+            { model: ServiceProject, as: 'serviceProject' },
+            { model: ExpenseSheet, as: 'expenseSheet' }
+        ],
+        order: [['date', 'DESC']]
+    });
+
+    // Generate paginated PDF content
+    const browser = await puppeteer.launch({
+        headless: 'new',
+        args: ['--no-sandbox']
+    });
+    
+    const page = await browser.newPage();
+    await page.setContent(pageContent);
+    await page.evaluate(() => document.fonts.ready);
+    
+    await page.pdf({
+        path: tempPdfPath,
+        format: 'A4',
+        printBackground: true,
+        landscape: true,
+        scale: 0.5
+    });
+};
+```
+
+Features include:
+- **Multi-Page Support**: Automatic pagination for large datasets
+- **Template System**: HTML templates with dynamic content injection
+- **Font Loading**: Custom fonts for brand consistency
+- **Compression**: Optimised file sizes for email delivery
+- **Multi-Currency**: Support for different currencies and exchange rates
+
+### 5. Automated Email & Notification System
+
+CreateMore includes a comprehensive automated notification system:
+
+```javascript
+// Scheduled email jobs with queue management
+const scheduleEmailJobs = () => {
+    // Run every Monday and Wednesday at 9:30 AM to send timesheet reminders
+    cron.schedule('30 9 * * 1,3', async () => {
+        console.log('Running timesheet reminder emails...');
+        await sendTimesheetReminders();
+    });
+
+    // Notify managers about incomplete timesheets at 10:00 AM
+    cron.schedule('0 10 * * 1,3', async () => {
+        console.log('Running holiday manager notifications...');
+        await notifyHolidayManagersAboutIncompleteTimesheets();
+    });
+
+    // Send invoice reminders at 11:00 AM
+    cron.schedule('0 11 * * 1,3', async () => {
+        console.log('Running invoice reminder emails...');
+        await sendInvoiceReminders();
+    });
+};
+```
+
+Features include:
+- **Email Queue Management**: Rate-limited email sending with retry mechanisms
+- **Timesheet Reminders**: Automated notifications for incomplete timesheets
+- **Invoice Reminders**: Scheduled payment reminder emails
+- **Manager Notifications**: Hierarchical notification system for team oversight
+- **SMTP Integration**: Production-ready email delivery with proper authentication
+
+### 6. CAF File Management & Search
+
+Specialised system for handling CAF binary archive files (named after the cathy software author's choice of extension):
+
+```javascript
+// CAF file indexing with Python integration
+const indexCafFile = async (cafFilePath) => {
+    const scriptPath = path.join(backendDir, 'cathy.py');
+    const filename = path.basename(cafFilePath);
+    const outputPath = path.join(indexDir, `${filename}.json`);
+
+    // Use Python script to extract metadata and index content
+    const cmd = `python3 "${scriptPath}" search-json "" "${cafFilePath}" true false > "${outputPath}"`;
+    
+    await execPromise(cmd, { timeout: 60000 });
+    return { success: true, indexPath: outputPath };
+};
+```
+
+Features include:
+- **File Upload Management**: Secure upload with validation and size limits
+- **Background Indexing**: Worker threads for non-blocking file processing
+- **Search Capabilities**: Full-text search across archived CAF files
+- **Progress Tracking**: Real-time indexing progress with job status
+- **Database Integration**: Indexed metadata stored for fast retrieval
+
+### 7. Comprehensive Expense Management
+
+Full expense tracking and approval workflow:
+
+```javascript
+// Expense field updates with validation
+const handleExpenseFieldChange = useCallback(
+    async (expenseEntryId, field, newValue) => {
+        try {
+            const updates = { [field]: newValue };
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/expenses/entry/${expenseEntryId}/update-expense`,
+                {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(updates),
+                    credentials: "include",
+                }
+            );
+            
+            if (!response.ok) throw new Error("Failed to update expense entry");
+            updateRowLocal(expenseEntryId, { [field]: newValue });
+        } catch (error) {
+            console.error(`Error updating expense entry ${field}:`, error);
+            toast.error("Failed to update expense");
+        }
+    },
+    [updateRowLocal]
+);
+```
+
+Features include:
+- **Multi-Category Expenses**: Travel, food, entertainment, and custom categories
+- **VAT Handling**: Configurable VAT rates and calculations
+- **Project Assignment**: Link expenses to specific projects and tasks
+- **Status Tracking**: Real-time expense entry updates and validation
+- **PDF Generation**: Automated expense report generation
+
+### 8. Skills Survey & Analytics
+
+<div style="display: flex; justify-content: center;">
+  <img src="/content/createmore/skills-survey.png" alt="Skills Survey" style="width: 100%; min-width: 1200px; height: auto;">
+</div>
+
+Built-in competency tracking and reporting:
+
+```javascript
+// Skills analytics with visualisation
+export default function SkillsSurveyResultsPage() {
+    const [scope, setScope] = useState('company');
+    const [category, setCategory] = useState('all');
+    
+    // Fetch aggregated skills data
+    const fetchSkillsMatrix = async () => {
+        const response = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/skills-survey/heatmap?scope=${scope}&category=${category}`,
+            { credentials: 'include' }
+        );
+        return response.json();
+    };
+
+    return (
+        <ResponsiveContainer width="100%" height={400}>
+            <RadarChart data={skillsData}>
+                <PolarGrid />
+                <PolarAngleAxis dataKey="skill" />
+                <PolarRadiusAxis angle={90} domain={[0, 5]} />
+                <Radar name="Team Average" dataKey="average" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+            </RadarChart>
+        </ResponsiveContainer>
+    );
+}
+```
+
+Features include:
+- **Competency Matrix**: Visual skills mapping across the organisation
+- **Self-Assessment**: Employee skill rating system
+- **Analytics Dashboard**: Radar charts and heatmaps for skills visualisation
+- **Manager Reports**: Aggregated team skill analysis
+- **Gap Analysis**: Identify training needs and skill gaps
+
+
+### 9. Advanced Holiday Management
+
+Sophisticated leave management with approvals:
+
+```javascript
+// Holiday calculation with partial days
+const holidayData = useMemo(() => {
+    const standardHoursPerDay = (process.env.NEXT_PUBLIC_ACTIVE_TENANT === 'artray' ? 8 : 7.5);
+    
+    const spentDays = data.reduce((sum, holiday) => {
+        if (holiday.type !== "Annual Holiday") return sum;
+        
+        const hoursPerDay = holiday.hours_per_day || standardHoursPerDay;
+        const daysProportion = hoursPerDay === standardHoursPerDay
+            ? holiday.days
+            : holiday.days * (hoursPerDay / standardHoursPerDay);
+            
+        return sum + daysProportion;
+    }, 0);
+
+    return {
+        total: holidayAllowance,
+        spent: Number(spentDays.toFixed(2)),
+        remaining: Number((totalDays - spentDays).toFixed(2))
+    };
+}, [data, holidayAllowance]);
+```
+
+Features include:
+- **Partial Day Support**: Hour-based holiday calculations
+- **Approval Hierarchies**: Manager-based approval workflows
+- **Holiday Types**: Annual, public, and service project categories
+- **Allowance Tracking**: Automatic calculation of remaining days
+- **Integration**: Seamless connection with timesheet and scheduling systems
+
+### 10. Authentication & Authorization
+
+Sophisticated auth system with LDAP integration:
+
+```javascript
+// LDAP authentication middleware
+const ldapAuthMiddleware = async (req, res) => {
+    const { email, password } = req.body;
+    
+    try {
+        // Authenticate against LDAP
+        const ldapResult = await authDN(email, password);
+        
+        if (ldapResult.success) {
+            // Fetch user from database with permissions
+            const user = await User.findOne({
+                where: { email },
+                include: [
+                    {
+                        model: TeamMember,
+                        as: 'teamMember',
+                        include: [
+                            { model: TeamMemberAccess, as: 'access' },
+                            { model: TeamHierarchy, as: 'hierarchy' }
+                        ]
+                    }
+                ]
+            });
+            
+            // Generate JWT token
+            const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { 
+                expiresIn: '7d' 
+            });
+            
+            res.cookie('token', token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000
+            });
+        }
+    } catch (error) {
+        console.error('LDAP authentication failed:', error);
+    }
+};
+```
+
+Features include:
+- **Dual Authentication**: LDAP for enterprise integration, local for flexibility
+- **Role-Based Access**: Granular permissions per feature
+- **Hierarchical Permissions**: Manager/team leader relationships
+- **Session Management**: Secure cookie-based sessions
+- **Route Protection**: Component-level access controls
+
+## Database Design
+
+The database schema supports complex business relationships:
+
+### Core Entities
+- **Users & TeamMembers**: Separation of authentication and employee data
+- **Projects**: Central entity linking clients, tasks, and resources
+- **Timesheets**: Flexible time tracking with project/task relationships
+- **Invoices**: Multi-currency invoicing with detailed line items
+- **Expenses**: Employee expense tracking with approval workflows
+
+### Key Relationships
+```sql
+-- Project hierarchy
+Projects -> ProjectTasks -> ProjectItems
+Projects -> TeamMembers (assignments)
+Projects -> Invoices (billing)
+
+-- Time tracking
+TeamMembers -> Timesheets -> ProjectTasks
+TeamMembers -> Events (scheduling)
+
+-- Financial tracking  
+Clients -> Projects -> Invoices
+ExpenseSheets -> ExpenseEntries -> Projects
+```
+
+<img src="/content/createmore/key-relationships.svg" alt="Key Relationships" style="width: 100%; max-width: 800px; height: auto;" />
+
+## Technical Challenges & Solutions
+
+### 1. Complex Scheduling Logic
+**Challenge**: Managing resource conflicts and availability
+**Solution**: Custom validation layer with real-time conflict detection
+
+### 2. Multi-Currency Support
+**Challenge**: Handling exchange rates and currency conversions
+**Solution**: Dedicated currency exchange table with historical rates
+
+### 3. PDF Generation Performance  
+**Challenge**: Large documents causing memory issues
+**Solution**: Pagination and streaming with temporary file cleanup
+
+### 4. Real-Time Updates
+**Challenge**: Keeping UI synchronised across user sessions
+**Solution**: Optimistic updates with automatic refresh triggers
+
+### 5. File Management
+**Challenge**: Organising and archiving large file collections
+**Solution**: Structured directory system with database indexing
+
+## Development Workflow
+
+### Database Management
+- **Migrations**: Sequelize migrations for schema changes
+- **Seeding**: Automated data seeding for development
+- **Backups**: Automated daily backups with compression
+
+### Testing Strategy
+- **Unit Tests**: Jest for business logic testing
+- **E2E Tests**: Playwright for critical user workflows with comprehensive holiday booking scenarios
+- **API Testing**: Automated endpoint validation
+- **Integration Tests**: Full workflow testing including PDF generation and email delivery
+
+#### Example E2E Test Coverage
+```javascript
+// Holiday booking flow with partial days and timesheet validation
+test('Complex holiday booking with partial days', async ({ page }) => {
+    // Create partial-day holiday (uncheck All Day, set hours to 4)
+    await page.getByRole('checkbox', { name: 'All Day' }).uncheck();
+    await page.getByLabel('Hours').fill('4');
+    
+    // Select tomorrow as start date and set status to Approved
+    await page.getByLabel('Start Date').fill(tomorrow);
+    await page.getByLabel('Status').selectOption('Approved');
+    
+    // Save and verify event creation
+    await page.getByRole('button', { name: 'Save' }).click();
+    
+    // Navigate to Timesheets and verify exactly 4h on the correct weekday
+    await page.goto('/timesheets');
+    const timesheetCell = page.locator(`[data-day="${tomorrowWeekday}"]`);
+    await expect(timesheetCell).toContainText('4.0');
+});
+```
+
+## Performance Optimisations
+
+### Frontend
+- **Code Splitting**: Dynamic imports for large components
+- **Memoisation**: React.memo and useMemo for expensive calculations
+- **Virtualisation**: Virtual scrolling for large data sets (reduced project loading from 18 seconds to 50ms)
+<div style="display: flex; justify-content: center;">
+  <img src="/content/createmore/performance-graph.png" alt="Performance Graph" style="width: 100%; min-width: 1200px; height: auto;">
+</div>
+- **Image Optimisation**: Next.js image optimisation
+
+### Backend  
+- **Database Indexing**: Strategic indexes for query performance
+- **Connection Pooling**: Optimised database connections
+- **Background Jobs**: Async processing for heavy operations
+
+## Deployment & Infrastructure
+
+### Production Setup
+- **SSL/TLS**: Certificate-based encryption
+- **Process Management**: PM2 for application lifecycle
+- **Database**: MariaDB with replication
+- **Monitoring**: Custom logging and error tracking
+
+### Security Measures
+- **Input Validation**: Comprehensive request validation
+- **SQL Injection Prevention**: Parameterized queries
+- **XSS Protection**: Content Security Policy headers
+- **Authentication**: Secure token management
+
+## Lessons Learned
+
+### What Worked Well
+1. **Modular Architecture**: Clear separation enabled parallel development
+2. **Component Libraries**: Consistent UI with Radix UI and shadcn foundation
+3. **Database Design**: Flexible schema supported feature evolution
+4. **Custom Solutions**: Building targeted features instead of using bloated third-party tools
+
+### What I'd Do Differently
+1. **State Management**: Consider Redux Toolkit for complex state
+2. **Testing Coverage**: Implement TDD from the beginning
+3. **Documentation**: Comprehensive API documentation from the beginning
+4. **Monitoring**: Earlier implementation of observability tools
+
+## Multi-Tenant Architecture
+
+CreateMore supports multiple client configurations through environment-based tenancy (elegant and pragmatic for small scale):
+
+```javascript
+// Tenant-specific configurations
+const standardHoursPerDay = (process.env.NEXT_PUBLIC_ACTIVE_TENANT === 'artray' ? 8 : 7.5);
+
+// Different business rules per tenant
+const tenantConfig = {
+    artray: {
+        workingHours: 8,
+        currency: 'BGN',
+        emailDomain: '@artray.bg'
+    },
+    ink: {
+        workingHours: 7.5, 
+        currency: 'GBP',
+        emailDomain: '@weareink.co.uk'
+    }
+};
+```
+
+This allows the same codebase to serve multiple organisations with different:
+- **Working hour standards** (7.5 vs 8 hours per day, due to different labour laws in Bulgaria vs UK)
+- **Currency configurations** (GBP vs BGN)
+- **Email domains** and authentication systems
+- **Holiday allowances** and calculation methods
+- **Approval hierarchies** and business rules
+
+## Impact & Results
+
+CreateMore has transformed operations across multiple design studios:
+
+### Operational Improvements
+- **Automated reminders** eliminated manual timesheet follow-ups
+- **Centralised document management** with searchable CAF archives
+- **Skills tracking** enabled better project team composition
+- **Multi-currency support** streamlined international client billing
+- **Hierarchical approvals** reduced management bottlenecks
+- **Performance gains** such as project loading time reduced from 18 seconds to 50ms
+
+### Technical Achievements
+- **Zero downtime** deployment process with PM2 and SSL automation
+- **Sub-second response** times for most operations despite complex data relationships
+- **Scalable architecture** supporting multiple tenants from single codebase
+- **Comprehensive audit trails** for all business-critical operations
+- **Custom-built solutions** tailored specifically to creative agency workflows
+
+## Future Enhancements
+
+### Planned Features
+- **Mobile Application**: React Native app for time tracking
+- **API Gateway**: Third-party integrations
+- **Workflow Automation**: Custom business rule engine
+- **Enhanced Reporting**: More detailed analytics and insights
+
+### Areas for Improvement
+- **Migration to TypeScript**: Gradual conversion of JavaScript codebase
+- **Enhanced Monitoring**: Better logging and error tracking systems
+- **Code Documentation**: More comprehensive inline documentation
+
+## Conclusion
+
+Building CreateMore was a significant undertaking that required balancing feature complexity with development speed. The modular architecture and modern tech stack enabled rapid iteration while maintaining code quality.
+
+The project demonstrates how domain-specific business requirements can drive technical decisions, resulting in a system that truly fits the unique needs of creative agencies. While there's always room for improvement, CreateMore successfully solved the core operational challenges we set out to address.
+
+For other developers considering similar projects, my key advice is:
+1. **Start with the data model** - get relationships right early
+2. **Build custom solutions** - if you have time, build from scratch rather than relying on complex third-party tools
+3. **Plan for evolution** - requirements will change
+4. **Focus on the user** - technical elegance means nothing if users struggle
+
+The architecture showcases modern web development practices while solving real business problems. It's a testament to what's possible when you align technical capabilities with business needs.
+
+---
+
+*CreateMore continues to evolve, powering the daily operations of 2 design studios while serving as a playground for new technologies and approaches. The journey from concept to production system has been both challenging and rewarding, proving that sometimes the best tools are the ones you build yourself.*
