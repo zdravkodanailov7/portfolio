@@ -1,17 +1,318 @@
 ---
-title: "LogToPost: Transform work logs into engaging X posts"
-publishedAt: "2025-08-25"
-summary: "Coming soon: Transform your daily work logs into engaging X posts with AI-powered content generation."
+title: "Building LogToPost: AI-Powered Social Media Content Generation SaaS"
+publishedAt: "2025-08-27"
+summary: "Deep dive into LogToPost, a SaaS application that transforms daily work logs into engaging X (Twitter) posts using GPT-4. Explore the full-stack architecture, AI integration challenges, and Stripe billing implementation."
 ---
 
-This blog post is currently under construction! Check back soon for detailed insights, challenges solved, tech decisions, and screenshots!
+<img src="/logtopost.png" alt="LogToPost Dashboard" style="width: 100%; min-width: 800px; height: auto;" />
 
-```cpp
-#include <iostream>
-using namespace std;
+## Table of Contents
 
-int main() {
-    cout << "LogToPost blog post coming soon!" << endl;
-    return 0;
+1. [The Problem](#the-problem)
+2. [Solution Overview](#solution-overview)
+3. [Technical Architecture](#technical-architecture)
+4. [Core Features](#core-features)
+5. [AI Integration Challenges](#ai-integration-challenges)
+6. [Stripe Integration](#stripe-integration)
+7. [Advanced UI Components](#advanced-ui-components)
+8. [Deployment](#deployment)
+9. [Lessons Learned](#lessons-learned)
+10. [Conclusion](#conclusion)
+
+## The Problem
+
+As a developer, I noticed a common struggle: **how to effectively showcase daily work and expertise on social media**. Many developers have valuable insights from their work but struggle to transform technical content into engaging posts.
+
+## Solution Overview
+
+**LogToPost** transforms daily work logs into engaging X (Twitter) posts using AI-powered content generation:
+
+1. **Daily Logging**: Users write about their work activities
+2. **Text Selection**: Select specific portions for transformation
+3. **AI Generation**: GPT-4 converts content into engaging posts
+4. **Content Management**: Review, edit, and manage generated posts
+
+## Technical Architecture
+
+### Frontend Stack
+- **Next.js 15** with App Router
+- **TypeScript** for type safety
+- **Tailwind CSS** for styling
+- **Framer Motion** for animations
+- **Radix UI** for accessible components
+
+### Backend Stack
+- **Express.js** with TypeScript
+- **Drizzle ORM** for database operations
+- **PostgreSQL** as primary database
+- **JWT Authentication** for sessions
+- **OpenAI API** for content generation
+- **Stripe** for subscription billing
+
+### Infrastructure
+- **Hetzner** for hosting
+- **PM2** for process management
+- **GitHub Actions** for CI/CD
+
+## Core Features
+
+### AI-Powered Content Generation
+
+```typescript
+export async function generatePosts(
+  selectedText: string,
+  userPrompt: string = "",
+  userId: string
+): Promise<GeneratedPost[]> {
+  const sanitizedPrompt = sanitizeUserPrompt(userPrompt);
+  
+  const systemPrompt = `You are an expert social media content creator...`;
+  
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [{ role: "user", content: fullPrompt }],
+    temperature: 0.7,
+    max_tokens: 1000,
+  });
+
+  return parseGeneratedContent(completion.choices[0].message.content);
 }
 ```
+
+**Key Features:**
+- Prompt injection prevention
+- Context preservation
+- Multiple post variations
+- Robust error handling
+
+### Subscription System
+
+```typescript
+export async function getSubscriptionStatus(userId: string) {
+  const user = await db.select().from(users).where(eq(users.id, userId));
+  
+  const subscriptions = await stripe.subscriptions.list({
+    customer: user[0].stripeCustomerId,
+    status: 'active',
+    limit: 1,
+  });
+  
+  if (activeSubscription) {
+    const usage = await getCurrentMonthUsage(userId);
+    return {
+      status: 'premium',
+      generationsLeft: 100 - usage,
+      renewsAt: new Date(activeSubscription.current_period_end * 1000),
+    };
+  }
+  
+  return { status: 'free', generationsLeft: 0 };
+}
+```
+
+**Billing Features:**
+- £9.99/month for 100 AI generations
+- Real-time usage tracking
+- Billing portal integration
+- Admin unlimited access
+
+## AI Integration Challenges
+
+### 1. Prompt Injection Prevention
+
+```typescript
+function sanitizeUserPrompt(userPrompt: string): string {
+  const dangerousPatterns = [
+    /ignore\s+(previous|above|all)\s+instructions?/gi,
+    /system\s*:/gi,
+    /assistant\s*:/gi,
+  ];
+  
+  let sanitized = userPrompt;
+  dangerousPatterns.forEach(pattern => {
+    sanitized = sanitized.replace(pattern, '');
+  });
+  
+  return sanitized.slice(0, 500);
+}
+```
+
+### 2. Response Validation
+
+```typescript
+function parseGeneratedContent(response: string): GeneratedPost[] {
+  try {
+    const parsed = JSON.parse(response);
+    if (Array.isArray(parsed.posts)) {
+      return parsed.posts.map(validatePost).filter(Boolean);
+    }
+  } catch {
+    return extractPostsFromText(response);
+  }
+  
+  throw new Error('Unable to parse AI response');
+}
+```
+
+## Stripe Integration
+
+Real-time billing without webhooks for immediate subscription updates:
+
+```typescript
+export async function createSubscription(userId: string) {
+  const user = await getUser(userId);
+  
+  let customerId = user.stripeCustomerId;
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: user.email,
+      metadata: { userId: userId },
+    });
+    customerId = customer.id;
+    await updateUser(userId, { stripeCustomerId: customerId });
+  }
+  
+  const subscription = await stripe.subscriptions.create({
+    customer: customerId,
+    items: [{ price: process.env.STRIPE_PRICE_ID }],
+    payment_behavior: 'default_incomplete',
+    expand: ['latest_invoice.payment_intent'],
+  });
+  
+  return {
+    subscriptionId: subscription.id,
+    clientSecret: subscription.latest_invoice.payment_intent.client_secret,
+  };
+}
+```
+
+## Advanced UI Components
+
+### Morphing Text Animation
+
+```typescript
+export const MorphingText = ({ texts }: { texts: string[] }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsAnimating(true);
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % texts.length);
+        setIsAnimating(false);
+      }, 300);
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [texts.length]);
+  
+  return (
+    <motion.span
+      key={currentIndex}
+      initial={{ opacity: 0, filter: 'blur(10px)' }}
+      animate={{ 
+        opacity: isAnimating ? 0 : 1, 
+        filter: isAnimating ? 'blur(10px)' : 'blur(0px)' 
+      }}
+      transition={{ duration: 0.3 }}
+      className="gradient-text"
+    >
+      {texts[currentIndex]}
+    </motion.span>
+  );
+};
+```
+
+**UI Features:**
+- Morphing text with blur effects
+- Gradient text animations
+- Smooth cursor tracking
+- Dark/light theme support
+- Keyboard shortcuts
+
+### Text Selection Preservation
+
+```typescript
+const useTextSelection = () => {
+  const [selection, setSelection] = useState<{
+    text: string;
+    range: Range | null;
+  }>({ text: '', range: null });
+  
+  useEffect(() => {
+    const handleSelection = () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        const text = sel.toString().trim();
+        
+        if (text.length > 0) {
+          setSelection({ text, range });
+        }
+      }
+    };
+    
+    document.addEventListener('selectionchange', handleSelection);
+    return () => document.removeEventListener('selectionchange', handleSelection);
+  }, []);
+  
+  return selection;
+};
+```
+
+## Deployment
+
+Modern CI/CD with GitHub Actions and zero-downtime deployments:
+
+- **Automated deployment** to Hetzner servers
+- **PM2 process management** for zero downtime
+- **SSL automation** with Let's Encrypt
+- **Database migrations** with rollback capability
+- **Environment variable management**
+
+## Lessons Learned
+
+### What Worked Well
+
+1. **Direct Stripe Integration**: Simplified architecture without webhooks
+2. **Migration-Driven Development**: Iterative database evolution
+3. **TypeScript Everywhere**: Improved development speed and reliability
+4. **Custom UI Components**: Polished user experience with Framer Motion
+
+### Challenges Overcome
+
+1. **AI Prompt Security**: Robust sanitization without breaking functionality
+2. **Real-time Billing**: Immediate updates without webhook complexity
+3. **State Management**: Balancing optimistic updates with data integrity
+4. **Performance**: Making AI generation feel instant despite API latency
+
+### Future Improvements
+
+1. **Multi-Platform Support**: LinkedIn, Instagram content generation
+2. **Team Collaboration**: Shared logs and approval workflows
+3. **Content Calendar**: Scheduling and automated posting
+4. **Analytics Dashboard**: Performance tracking and insights
+
+## Conclusion
+
+LogToPost demonstrates modern SaaS development with:
+
+- **Secure AI integration** with prompt injection prevention
+- **Real-time billing** without webhook complexity
+- **Advanced UI components** with smooth animations
+- **Professional deployment** pipeline
+
+The project showcases how thoughtful architecture and user experience focus can create a compelling product that solves real problems for developers and content creators.
+
+Building LogToPost highlighted the importance of:
+- Starting simple and evolving based on user needs
+- Prioritizing security from day one
+- Focusing on performance for delightful UX
+- Building scalable foundations
+
+For developers interested in AI-powered SaaS applications, LogToPost serves as a comprehensive example of modern full-stack development with subscription billing and professional UI design.
+
+---
+
+*LogToPost continues helping developers transform daily work into engaging social media content, with a technical foundation that supports rapid feature development while maintaining professional reliability.*

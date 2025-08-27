@@ -10,7 +10,7 @@ export const DATA = {
   description:
     "Full-Stack Developer focused on building scalable, practical applications.",
   summary:
-    "After completing my A-levels in Mathematics, Further Mathematics, and Computer Science (with full marks on the CS NEA project), I dove into professional development through certifications and real-world work. I earned the IBM Back-End Development Specialisation on Coursera and completed Udemy courses in Python, full-stack web development, and web technologies. At INK Design Studio, I built two major applications from scratch: CreateMore (an ERP tool for project management) and FileTank (a multi-tenant file sharing platform). I'm based in London and looking to leverage my practical skills in junior full-stack or software engineering roles.",
+    "After completing my A-levels in Mathematics, Further Mathematics, and Computer Science (with full marks on the CS NEA project), I dove into professional development through certifications and real-world work. I earned the IBM Back-End Development Specialisation on Coursera and completed Udemy courses in Python, full-stack web development, and web technologies. At INK Design Studio, I built two major applications from scratch: CreateMore (an ERP tool for project management) and FileTank (a multi-tenant file sharing platform). I'm based in London and looking to leverage my practical skills in full-stack or software engineering roles.",
   workExperience: [
     {
       company: "INK Design Studio",
@@ -208,9 +208,52 @@ export const DATA = {
       video: "",
     },
     {
+      title: "LogToPost",
+      href: "/blog/logtopost",
+      dates: "2025 - Present",
+      active: true,
+      description:
+        "SaaS web application that transforms daily work logs into engaging X (Twitter) posts using AI-powered content generation; features GPT-4 integration, Stripe billing, JWT authentication, and advanced UI with Framer Motion animations; deployed on Hetzner with CI/CD via GitHub Actions.",
+      technologies: [
+        "Next.js 15",
+        "TypeScript",
+        "Express.js",
+        "PostgreSQL",
+        "Drizzle ORM",
+        "OpenAI API",
+        "Stripe",
+        "Framer Motion",
+        "Tailwind CSS",
+        "JWT",
+      ],
+      links: [],
+      image: "/logtopost.png",
+      video: "",
+    },
+    {
+      title: "Portfolio Website",
+      href: "/blog/portfolio",
+      dates: "2025 - Present",
+      active: true,
+      description:
+        "Modern, responsive portfolio website built with Next.js 14 App Router; features blog system with MDX content, syntax highlighting, automatic heading IDs, table of contents generation, and custom wide code block styling; showcases projects and technical writing.",
+      technologies: [
+        "Next.js 14",
+        "TypeScript",
+        "Tailwind CSS",
+        "MDX",
+        "Rehype",
+        "Unified",
+        "React",
+      ],
+      links: [],
+      image: "/portfolio.png",
+      video: "",
+    },
+    {
       title: "Goosey",
       href: "/blog/goosey",
-      dates: "2025",
+      dates: "2025 - Present",
       active: true,
       description:
         "AI-powered chatbot built with Microsoft Bot Framework and OpenAI integration; features Microsoft Graph API for enhanced functionality and Node.js backend for scalable deployment.",
