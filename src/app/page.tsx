@@ -40,7 +40,7 @@ export default function Page() {
       </section>
       <section id="about">
         <BlurFade delay={BLUR_FADE_DELAY * 3}>
-          <h2 className="text-xl font-bold">About</h2>
+          <h2 className="text-xl font-bold">About Me</h2>
         </BlurFade>
         <BlurFade delay={BLUR_FADE_DELAY * 4}>
           <Markdown className="prose max-w-full text-pretty font-sans text-sm text-muted-foreground dark:prose-invert">
@@ -51,7 +51,7 @@ export default function Page() {
       <section id="work">
         <div className="flex min-h-0 flex-col gap-y-3">
           <BlurFade delay={BLUR_FADE_DELAY * 5}>
-            <h2 className="text-xl font-bold">Work Experience</h2>
+            <h2 className="text-xl font-bold">Work</h2>
           </BlurFade>
           {DATA.work.map((work, id) => (
             <BlurFade
@@ -163,14 +163,7 @@ export default function Page() {
                 Get in Touch
               </h2>
               <p className="mx-auto max-w-[600px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                Want to connect? Just send me a direct message on{" "}
-                <Link
-                  href={DATA.contact.social.LinkedIn.url}
-                  target="_blank"
-                  className="text-blue-500 hover:underline"
-                >
-                  LinkedIn
-                </Link>.
+                Want to connect? Just send me a message on any of the platforms below.
               </p>
             </div>
           </BlurFade>
