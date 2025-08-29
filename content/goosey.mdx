@@ -1,12 +1,269 @@
 ---
 title: "Creating Goosey: AI-Powered Microsoft Teams Bot"
-publishedAt: "2025-08-24"
-summary: "Coming soon: Breakdown of the OpenAI-integrated bot for team productivity."
+publishedAt: "2025-08-29"
+summary: "Deep dive into Goosey, an AI-powered Microsoft Teams bot that summarises chats, sends daily meeting digests, answers questions, and automates workflows using Microsoft Graph and OpenAI."
 ---
 
-This blog post is currently under construction! Check back soon for detailed insights, challenges solved, tech decisions, and screenshots!
+<img src="/goosey.png" style="width: 100%; max-width: 1200px; height: auto; border-radius: 8px;" />
 
-```python
-print("Goosey blog post activating soon!")
-# AI-powered bot integration coming up
+## Table of Contents
+
+1. [Introduction](#introduction)
+2. [The Problem](#the-problem)
+3. [Solution Overview](#solution-overview)
+4. [Technical Architecture](#technical-architecture)
+5. [Teams Capabilities & Commands](#teams-capabilities--commands)
+6. [AI Integration](#ai-integration)
+7. [Graph & Proactive Messaging](#graph--proactive-messaging)
+8. [Core Features Deep Dive](#core-features-deep-dive)
+   - [1. Chat & Thread Summaries](#1-chat--thread-summaries)
+   - [2. Daily Meeting Digests](#2-daily-meeting-digests)
+   - [3. Timesheet & People Intelligence](#3-timesheet--people-intelligence)
+   - [4. GIFs, Docs, and Image Analysis](#4-gifs-docs-and-image-analysis)
+9. [Security & Permissions](#security--permissions)
+10. [Deployment & Operations](#deployment--operations)
+11. [Challenges & Optimisations](#challenges--optimisations)
+12. [Future Roadmap](#future-roadmap)
+13. [Conclusion](#conclusion)
+
+## Introduction
+
+Goosey is a pragmatic, AI-powered Microsoft Teams bot that helps small-to-mid teams move faster. It turns noisy channels into concise summaries, sends automated morning meeting digests, answers everyday questions, and adds a pinch of personality to lighten the mood.
+
+## The Problem
+
+- Teams channels get busy; catching up is hard.
+- Managers need quick visibility of who’s off and what’s coming up.
+- Repetitive questions (docs, bios, timesheets) slow everyone down.
+
+## Solution Overview
+
+- Chat and thread summarisation on-demand.
+- Proactive morning meeting digests in a chosen channel.
+- Quick answers about people, docs, and timesheets.
+- Friendly command help via Adaptive Cards; playful goose persona.
+
+## Technical Architecture
+
+### Stack
+
+- Language/Runtime: Node.js (ESM), Restify server
+- Bot framework: BotBuilder SDK with `CloudAdapter`
+- OpenAI for LLM calls
+- Microsoft Graph for chat history, users, teams/channels
+- Data: lightweight JSON files for state and caches (no database)
+- Scheduling: `node-cron` for weekday 09:00 digests
+- Process: PM2-managed service with CI/CD via GitHub Actions
+
+### Server & Adapter
+
+```javascript
+// Adapter and error handling (excerpt)
+const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication(process.env);
+const adapter = new CloudAdapter(botFrameworkAuthentication);
+
+const onTurnErrorHandler = async (context, error) => {
+  console.error("[onTurnError]", error);
+  await context.sendActivity("The bot encountered an error.");
+};
+adapter.onTurnError = onTurnErrorHandler;
+
+// Messages endpoint
+server.post("/api/messages", async (req, res) => {
+  await adapter.process(req, res, async (context) => {
+    if (context.activity.type === "message") {
+      await sendTypingIndicator(context);
+    }
+    await bot.run(context);
+  });
+});
 ```
+
+## Teams Capabilities & Commands
+
+### Capabilities
+
+- Personal and team bot
+- Adaptive Cards and task-style flows
+- Proactive messages (DMs and channels)
+
+### Representative Commands
+
+- `help`, `introduction`
+- `summarise [n]` – concise summary of recent messages
+- `gif [topic]` – a quick celebratory GIF
+- `who is off`, `who is [name]`, `use bio info`
+- `check timesheet [name|anyone]`, `timesheet stats [query]`
+- `enable my meetings`, `show meetings`, `show opted-in users`
+- `set notification channel` – where to post daily digests
+
+```javascript
+// Intent detection and routing (excerpt)
+const intentResult = await detectIntent(messageText, conversationId, userId, botId, context);
+switch (intentResult.intent) {
+  case "help":
+    return handleHelpCommand(context);
+  case "summarise":
+    return handleSummariseCommand(context, intentResult);
+  case "who_is_off":
+    return handleWhoIsOffCommand(context);
+  // ... more intents
+}
+```
+
+## AI Integration
+
+- Provider: OpenAI (chat completions; JSON responses for intent classification)
+- Persona: Helpful, witty goose; politely declines to invent facts
+- Context: Limited conversation history; Graph-backed content when permitted
+- Vision: Optional image analysis when attachments are present
+
+```javascript
+// Intent classification (JSON mode)
+const messages = [
+  { role: "system", content: systemPrompt },
+  { role: "user", content: userPrompt }
+];
+const completion = await openai.chat.completions.create({
+  model: "gpt-4o",
+  messages,
+  response_format: { type: "json_object" }
+});
+const parsed = JSON.parse(completion.choices[0].message.content);
+```
+
+## Graph & Proactive Messaging
+
+### Graph Access
+
+- App credentials flow; token cached in-memory
+- Used for chats/channels history and user lookups
+
+```javascript
+// Acquire Graph token (client credentials)
+const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+const params = new URLSearchParams({
+  client_id: appId,
+  client_secret: appPassword,
+  scope: "https://graph.microsoft.com/.default",
+  grant_type: "client_credentials"
+});
+const { data } = await axios.post(tokenUrl, params);
+cachedToken = data.access_token;
+```
+
+```javascript
+// Paginate channel messages (excerpt)
+let all = [];
+let next = null;
+let url = `${baseUrl}?$top=${pageSize}&$orderby=createdDateTime desc`;
+while (all.length < limit && (next || url)) {
+  const { data } = await axios.get(next || url, { headers: { Authorization: `Bearer ${token}` } });
+  all = all.concat(data.value);
+  next = data["@odata.nextLink"];
+  url = null;
+}
+```
+
+### Proactive Messaging API
+
+- Stores conversation references when users DM the bot
+- Simple API with `x-api-key` to send DMs or post to configured channels
+
+```javascript
+// POST /api/send-message (excerpt)
+if ((req.headers["x-api-key"] || req.headers["authorization"]) !== process.env.GOOSEY_API_KEY) {
+  return res.send(401, { success: false, error: "Unauthorized" });
+}
+const { name, message } = req.body || {};
+// ...look up conversation ref by display name...
+await adapter.continueConversationAsync(process.env.MicrosoftAppId, ref, async (ctx) => {
+  await ctx.sendActivity(message);
+});
+res.send(200, { success: true });
+```
+
+## Core Features Deep Dive
+
+### 1. Chat & Thread Summaries
+
+Goosey fetches recent messages (Graph when permitted; otherwise in-memory history), removes noise, and produces short, actionable summaries with clear bullets and next steps.
+
+```javascript
+// Summarise command (excerpt)
+const messages = await fetchRecentMessages(context, { limit });
+const prompt = buildSummaryPrompt(messages);
+const { content } = await callOpenAI(prompt);
+await context.sendActivity(formatAsCard("Summary", content));
+```
+
+### 2. Daily Meeting Digests
+
+Every weekday at 09:00, Goosey posts today’s meetings into a configured channel. Users can opt-in/out individually.
+
+```javascript
+// Scheduler initialisation (excerpt)
+if (process.env.MEETINGS_TEAM_ID && process.env.MEETINGS_CHANNEL_ID) {
+  scheduleDailyMeetingSummary(process.env.MEETINGS_TEAM_ID, process.env.MEETINGS_CHANNEL_ID, adapter, botId);
+}
+```
+
+### 3. Timesheet & People Intelligence
+
+- Quick checks like “has Alex completed their timesheet?” with a link to the source system
+- `who is [name]` returns a short profile from cached bios + user directory
+
+```javascript
+// People bio lookup (excerpt)
+const bio = await getCachedOrScrapedBio(displayName);
+return renderAdaptiveCard({ title: displayName, body: bio.summary, links: bio.links });
+```
+
+### 4. GIFs, Docs, and Image Analysis
+
+- `gif [topic]` pulls a lightweight celebratory GIF via Tenor
+- “show documents” routes to common links
+- Image attachments can be described via vision prompts
+
+## Security & Permissions
+
+- Bot credentials: `MicrosoftAppId`, `MicrosoftAppPassword`, `MicrosoftAppTenantId`
+- Graph app permissions (admin consent): `Chat.Read.All`, `ChannelMessage.Read.All`, `User.Read.All`
+- API endpoints gated by `GOOSEY_API_KEY`
+- JSON files store conversation references and opt-ins (no PII beyond display names and IDs)
+
+## Deployment & Operations
+
+- PM2-managed Node process; zero-downtime restarts
+- GitHub Actions deploy: pull latest, `npm install`, PM2 restart
+- Environment-driven configuration for Teams IDs and API keys
+
+```yaml
+# Deploy (excerpt)
+steps:
+  - name: Deploy Goosey
+    run: |
+      ssh $SSH_HOST << 'EOF'
+        cd /srv/goosey
+        git pull --ff-only
+        npm install --omit=dev
+        ./node_modules/.bin/pm2 restart goosey || ./node_modules/.bin/pm2 start index.js --name goosey
+      EOF
+```
+
+## Challenges & Optimisations
+
+- Teams attachment auth: multiple strategies, with graceful fallbacks
+- Graph pagination: fetch only what’s needed; token caching for speed
+- Summaries: prompt engineered to avoid fabrication; concise output
+
+## Future Roadmap
+
+- Retries/backoff and rate-limit handling for Graph
+- Telemetry (App Insights/OpenTelemetry) with PII scrubbing
+- Manifest packaging in-repo and per-environment config templates
+- Optional RAG over internal docs with access control
+
+## Conclusion
+
+Goosey shows how far a focused Teams bot can go with a small, modern stack. By blending Microsoft Graph data with OpenAI and a touch of personality, it removes daily friction for teams, summarising the noise, surfacing what matters, and automating routine updates.

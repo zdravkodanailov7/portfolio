@@ -143,7 +143,7 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   width: 3rem;
 }
 
-/* Custom styles for wide code blocks */
+/* 
 .prose pre {
   width: 1000px;
   max-width: 95vw;
@@ -159,4 +159,4 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
     left: 50%;
     transform: translateX(-50%);
   }
-}
+} */

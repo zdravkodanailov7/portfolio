@@ -1,9 +1,175 @@
 ---
 title: "Building My Portfolio Website: Modern Next.js with Advanced MDX Blog System"
-publishedAt: "2025-08-27"
+publishedAt: "2025-08-29"
 summary: "Deep dive into building a modern portfolio website with Next.js 14 App Router, featuring an advanced MDX blog system, custom animations, and responsive design. Explore the technical architecture, component design, and blog processing pipeline."
 ---
 
 <img src="/content/portfolio/big-portfolio.png" alt="Portfolio Website" style="width: 100%; min-width: 800px; height: auto;" />
 
-Coming soon!
+## Table of Contents
+
+1. [Introduction](#introduction)
+2. [Goals](#goals)
+3. [Architecture Overview](#architecture-overview)
+4. [Design System & Components](#design-system--components)
+5. [MDX Blog Pipeline](#mdx-blog-pipeline)
+6. [Animations & UX](#animations--ux)
+7. [SEO & Metadata](#seo--metadata)
+8. [Performance](#performance)
+9. [Deployment](#deployment)
+10. [Lessons Learned](#lessons-learned)
+11. [Future Enhancements](#future-enhancements)
+12. [Conclusion](#conclusion)
+
+## Introduction
+
+This site is a compact, fast portfolio built on the Next.js App Router. It combines a clean visual language with subtle motion, a dock-style navbar, and an MDX-powered blog that supports Git-backed posts, code highlighting, and raw HTML where needed.
+
+## Goals
+
+- Keep it lightweight and focused, with great typography and motion
+- First-class MDX blogging, easy to maintain from the repo
+- Responsive layout that looks great on phones and large screens
+- Strong SEO defaults and shareable OpenGraph images
+
+## Architecture Overview
+
+- Framework: Next.js 14 App Router, React 18
+- Styling: Tailwind CSS (`globals.css`) with shadcn/ui primitives
+- State/Theme: `next-themes` for dark/light toggle
+- Animations: Framer Motion for reveal and text motion
+- Content: MDX files in `content/` parsed at build-time
+- Analytics: Vercel Analytics
+
+```tsx
+// Root layout sets up SEO, theme, and global shell (excerpt)
+export const metadata = { /* pulled from DATA in resume */ };
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-background font-sans antialiased max-w-2xl mx-auto py-12 sm:py-24 px-6">
+        <ThemeProvider attribute="class" defaultTheme="light">
+          <TooltipProvider delayDuration={0}>{children}<Navbar /></TooltipProvider>
+        </ThemeProvider>
+        <Analytics />
+      </body>
+    </html>
+  );
+}
+```
+
+## Design System & Components
+
+The UI leans on small, composable components with a custom dock-style navbar.
+
+```tsx
+// Dock navbar (excerpt)
+<Dock className="mx-auto flex items-center px-1 bg-background">
+  {DATA.navbar.map((item) => (
+    <DockIcon key={item.href}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link href={item.href} className={buttonVariants({ variant: "ghost", size: "icon" }) + " size-12"}>
+            <item.icon className="size-4" />
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent><p>{item.label}</p></TooltipContent>
+      </Tooltip>
+    </DockIcon>
+  ))}
+  {/* social icons + theme toggle */}
+  <DockIcon><ModeToggle /></DockIcon>
+}</Dock>
+```
+
+Project tiles support both images and autoplaying videos, with tags and external links.
+
+```tsx
+// ProjectCard media handling (excerpt)
+{video && (
+  <video src={video} autoPlay loop muted playsInline className="h-40 w-full object-cover" />
+)}
+{image && (
+  <Image src={image} alt={title} width={500} height={300} className="h-40 w-full object-cover" />
+)}
+```
+
+## MDX Blog Pipeline
+
+Posts live under `content/*.mdx` with frontmatter metadata. The pipeline converts MD/MDX to HTML using `unified` with `remark`/`rehype` plugins, including GitHub-flavored markdown, raw HTML, slugged headings, and Shiki-powered code highlighting via `rehype-pretty-code`.
+
+```ts
+// content loader and pipeline (excerpt)
+export async function markdownToHTML(markdown: string) {
+  const p = await unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeRaw)
+    .use(rehypeSlug)
+    .use(rehypePrettyCode, {
+      theme: { light: "min-light", dark: "min-dark" },
+      keepBackground: false,
+    })
+    .use(rehypeStringify)
+    .process(markdown);
+  return p.toString();
+}
+```
+
+Each blog post page generates per-post metadata and JSON-LD for SEO.
+
+```ts
+// Per-post metadata (excerpt)
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const post = await getPost(params.slug);
+  const ogImage = post.metadata.image ? `${DATA.url}${post.metadata.image}` : `${DATA.url}/og?title=${post.metadata.title}`;
+  return {
+    title: post.metadata.title,
+    description: post.metadata.summary,
+    openGraph: { type: "article", title: post.metadata.title, description: post.metadata.summary, images: [ogImage] },
+    twitter: { card: "summary_large_image", title: post.metadata.title, description: post.metadata.summary, images: [ogImage] },
+  };
+}
+```
+
+## Animations & UX
+
+Subtle entrance animations improve perceived performance and polish. `BlurFade` reveals blocks on scroll; `BlurFadeText` animates headings or sentences, optionally by character.
+
+```tsx
+// BlurFade (excerpt)
+const defaultVariants = { hidden: { y: 6, opacity: 0, filter: "blur(6px)" }, visible: { y: -6, opacity: 1, filter: "blur(0px)" } };
+<motion.div initial="hidden" animate="visible" variants={defaultVariants} transition={{ delay: 0.04 + delay, duration: 0.4, ease: "easeOut" }}>
+  {children}
+</motion.div>
+```
+
+## SEO & Metadata
+
+Global metadata comes from a single source of truth in `DATA` and is applied site‑wide in `layout.tsx`, including OpenGraph and Twitter cards. Blog posts add structured data via JSON‑LD.
+
+## Performance
+
+- Static generation for blog pages and homepage
+- Minimal client JS; most components are presentational
+- Shiki code highlighting rendered at build-time
+- Responsive images via `next/image` in project cards
+
+## Lessons Learned
+
+- A small design system with motion goes a long way
+- MDX + unified gives full control without heavy CMS overhead
+- Centralised `DATA` enables consistent SEO and copy updates
+
+## Future Enhancements
+
+- Generate OpenGraph images per post automatically
+- Add RSS feed and sitemap
+- Author pages and tag filtering
+- Enhance the MDX renderer with callouts and custom components
+
+## Conclusion
+
+This portfolio focuses on clarity, speed, and maintainability. With a tight Next.js setup, a pleasant motion system, and an MDX pipeline that’s easy to extend, it’s a solid foundation for showcasing work and writing long-form content.

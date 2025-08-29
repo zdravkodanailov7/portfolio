@@ -143,7 +143,7 @@ export const DATA = {
       dates: "Sep 2024 - Present",
       active: true,
       description:
-        "Full-stack ERP for companies; manages projects, invoicing, scheduling, features listed in blog post. Scaled to 2000+ projects and 20+ users, saving hundreds of hours on manual tasks.",
+        "Full-stack ERP for companies; manages projects, invoicing, scheduling, more features listed in blog post. Scaled to 2000+ projects and 20+ daily users, saving hundreds of hours on manual tasks.",
       technologies: [
         "Next.js",
         "JavaScript",

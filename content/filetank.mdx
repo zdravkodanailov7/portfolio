@@ -1,11 +1,234 @@
 ---
-title: "Developing FileTank: Multi-Tenant File Sharing Platform"
-publishedAt: "2025-08-24"
-summary: "Coming soon: Exploring the scalable SaaS for secure file sharing with pricing tiers."
+title: "Building FileTank: A Multi‑Tenant File Sharing Platform"
+publishedAt: "2025-08-29"
+summary: "Deep dive into FileTank, a secure, multi‑tenant file sharing platform with resumable uploads, expiring public links, role‑based permissions, previews, auditing, and scheduled backups. Explore the architecture, trade‑offs, and roadmap."
 ---
 
-This blog post is currently under construction! Check back soon for detailed insights, challenges solved, tech decisions, and screenshots!
+<img src="/content/filetank/big-filetank.png" alt="FileTank Dashboard" style="width: 100%; min-width: 800px; height: auto;" />
 
-```jsx
-console.log("FileTank coming soon!");
+## Table of Contents
+
+1. [Introduction](#introduction)
+2. [The Problem](#the-problem)
+3. [Solution Overview](#solution-overview)
+4. [Architecture Overview](#architecture-overview)
+5. [Core Features Deep Dive](#core-features-deep-dive)
+   - [1. Resumable Uploads](#1-resumable-uploads)
+   - [2. Sharing & Public Links](#2-sharing--public-links)
+   - [3. Permissions & Inheritance](#3-permissions--inheritance)
+   - [4. Workspaces & Folders](#4-workspaces--folders)
+   - [5. Previews Pipeline](#5-previews-pipeline)
+   - [6. Search](#6-search)
+6. [Security & Compliance](#security--compliance)
+7. [Multi‑Tenant Architecture](#multi-tenant-architecture)
+8. [Performance & Operations](#performance--operations)
+9. [Development Workflow](#development-workflow)
+10. [Deployment & Infrastructure](#deployment--infrastructure)
+11. [Limitations & Roadmap](#limitations--roadmap)
+12. [Conclusion](#conclusion)
+
+## Introduction
+
+FileTank is a multi‑tenant file sharing platform I built to give organisations fine‑grained control over how large files are uploaded, managed, previewed, and shared, without handing everything to a third‑party cloud drive. It’s designed for teams that need auditable workflows, expiring public links, role‑based permissions, and predictable operational control.
+
+## The Problem
+
+Teams that trade large assets (agencies, media houses, legal and finance, engineering) often outgrow consumer file sharing. They need:
+- Strong tenancy boundaries and role‑based access
+- Resumable uploads for very large files and deep folder trees
+- Expiring public links with guest capture and auditability
+- Lightweight previews so reviewers can skim quickly
+- Operational guardrails: backups, clean‑ups, and monitoring
+
+## Solution Overview
+
+FileTank provides:
+- Resumable, chunked uploads that reconstruct files on the server without memory spikes
+- Public links with expiry and optional guest details, plus detailed audit logs
+- Workspace/folder hierarchy with permission inheritance and overrides
+- Image, PDF, and video previews
+- Organisation‑scoped access with JWT‑backed sessions
+- Scheduled clean‑ups and database backups
+
+## Architecture Overview
+
+### Frontend
+- Framework: Next.js (App Router), Tailwind CSS
+- State: React Context for global state, focused components for upload and previews
+- Upload UI: chunked/resumable uploads with progress
+
+### Backend
+- Runtime: Node.js with Express
+- Data: MariaDB via Sequelize; local filesystem for `uploads/` and `previews/`
+- Scheduling: `node-cron` for backups and clean‑ups
+- Auth: JWT in httpOnly cookies; optional LDAP; organisation context carried in the token
+- APIs: REST endpoints; WebSocket feed for monitoring
+
+```javascript
+// MariaDB connection via Sequelize
+import { Sequelize } from 'sequelize';
+
+const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASS, {
+  host: process.env.DB_HOST,
+  dialect: 'mariadb',
+  logging: false,
+  define: { underscored: true },
+});
+
+export default sequelize;
 ```
+
+```javascript
+// JWT authentication with organisation context
+export async function authenticateToken(req, res, next) {
+  try {
+    const token = req.cookies.token;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = { id: decoded.id, email: decoded.email, isSuperuser: decoded.isSuperuser };
+    if (decoded.organizationId) req.organization = { id: decoded.organizationId };
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorised' });
+  }
+}
+```
+
+## Core Features Deep Dive
+
+### 1. Resumable Uploads
+
+Uploads are received as small chunks, written to a temporary area on disk, then finalised into the target location using streaming to avoid memory spikes. Deep folder paths are created on the fly from the client’s relative path.
+
+```javascript
+// Multer storage for chunked uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, TEMP_DIR),
+  filename: (req, file, cb) => {
+    const { resumableIdentifier, resumableChunkNumber } = req.body;
+    cb(null, `${resumableIdentifier}.${resumableChunkNumber}.${Date.now()}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 6 * 1024 * 1024, files: 1, parts: 25 },
+});
+```
+
+```javascript
+// Finalise: merge chunks into the final file with streams
+router.post('/finalize', authenticateToken, express.json({ limit: '1mb' }), async (req, res) => {
+  const { uuid, filename, relativePath, totalChunks, fileSize, folderId } = req.body;
+  res.status(200).json({ success: true, message: 'Finalisation started' });
+
+  setImmediate(async () => {
+    const finalPath = ensureFoldersAndResolvePath(relativePath, filename);
+    const writeStream = fs.createWriteStream(finalPath);
+    for (let i = 1; i <= totalChunks; i++) {
+      const chunkPath = path.join(TEMP_DIR, `${uuid}.${i}.chunk`);
+      await new Promise((resolve, reject) => {
+        fs.createReadStream(chunkPath).pipe(writeStream, { end: false })
+          .on('finish', () => fs.unlink(chunkPath, resolve))
+          .on('error', reject);
+      });
+    }
+    writeStream.end();
+    await recordFile({ folderId, filename, finalPath, fileSize });
+  });
+});
+```
+
+### 2. Sharing & Public Links
+
+Create expiring download links for single files or multiple selections. Organisations may require guest details before download. All actions are audited.
+
+```javascript
+// Create download link
+export async function createDownloadLink(req, res) {
+  const { items, expiresInDays } = req.body;
+  const expiresAt = new Date(Date.now() + expiresInDays * 86400_000);
+  const link = await DownloadLink.create({ items, expiresAt, organizationId: req.organization.id, createdBy: req.user.id });
+  return res.status(201).json({ linkId: link.linkId, expiresAt });
+}
+```
+
+```javascript
+// Download from link (single file fast‑path or streamed ZIP)
+export async function downloadFromLink(req, res) {
+  const link = await DownloadLink.findOne({ where: { linkId: req.params.id } });
+  if (!link || new Date() > link.expiresAt) return res.status(410).json({ error: 'Link expired' });
+  const { files, folders } = await resolveItems(link.items);
+  if (files.length === 1 && folders.length === 0) return streamFile(files[0], res);
+  return streamZip(files, folders, res);
+}
+```
+
+### 3. Permissions & Inheritance
+
+Effective access is resolved by combining explicit file/folder permissions, inheritance up the folder tree, workspace membership, and organisation admin status. Explicit permissions restrict access; absence implies full access for admins.
+
+### 4. Workspaces & Folders
+
+Top‑level folders act as workspaces. Nested folders are created automatically from upload paths. Permission inheritance applies on creation for predictable defaults.
+
+### 5. Previews Pipeline
+
+Thumbnails are generated for images, first‑page previews for PDFs, and representative frames for videos. Previews are stored under `previews/` and referenced in the UI.
+
+```javascript
+// Image preview via sharp
+const buffer = await sharp(filePath)
+  .resize(400, 400, { fit: 'inside', withoutEnlargement: true })
+  .jpeg({ quality: 85 })
+  .toBuffer();
+await fs.promises.writeFile(path.join(PREVIEWS_DIR, `thumbnail_${fileId}.jpg`), buffer);
+```
+
+### 6. Search
+
+Name‑based search scoped to the user’s accessible workspaces and filtered through effective permissions. (Roadmap includes content indexing and tags.)
+
+## Security & Compliance
+
+- **Authentication & Authorisation**: JWT cookies; organisation context; role checks; effective permissions on objects
+- **Transport Security**: HTTPS in production
+- **Audit Trails**: Uploads, public links, downloads, and destructive actions are logged with actor and metadata
+- **Upload Safety**: Strict chunk and file size limits; MIME‑aware behaviour; roadmap includes antivirus and content‑type sniffing
+
+## Multi‑Tenant Architecture
+
+- **Tenant**: `Organisation` entity; users join via membership records
+- **Context**: `organizationId` carried in JWT and validated on each request
+- **Isolation**: Single schema with app‑level enforcement; file paths are nested per organisation
+- **RBAC**: Organisation admin role plus per‑workspace/folder/file permissions with inheritance
+
+```javascript
+// Attach organisation context after verifying token and membership
+req.organization = { id: org.id, name: org.name, role: membership.role };
+```
+
+## Performance & Operations
+
+- **Large Files**: Chunked uploads and streamed merging (memory‑light)
+- **Operations**: Scheduled clean‑ups (expired links, inactive workspaces); nightly database backups
+
+```javascript
+// Nightly database backup at 03:00
+cron.schedule('0 3 * * *', () => backupDatabase());
+```
+
+## Development Workflow
+
+- **Database**: Sequelize models; sync‑based migrations for speed during early development
+- **Testing**: Unit and integration coverage for upload, link, and preview flows
+- **DX**: Seed scripts and local `.env` for quick start
+
+## Deployment & Infrastructure
+
+- **Process Management**: PM2 in production
+- **TLS**: Node HTTPS server with provided certificates
+- **Static Serving**: `/uploads` served directly; previews resolved via API
+
+## Conclusion
+
+FileTank brings auditable, role‑aware file management to organisations that want operational control without heavy vendor lock‑in. The current architecture has proven robust for large uploads, secure sharing, and day‑to‑day collaboration, with a clear path towards object storage, antivirus, and richer search.
