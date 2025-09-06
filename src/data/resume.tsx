@@ -138,6 +138,34 @@ export const DATA = {
   ],
   projects: [
     {
+      title: "Handwritten Digit Recogniser",
+      href: "/blog/digit-recogniser",
+      dates: "Sep 2025",
+      active: true,
+      description:
+        "Built from scratch using python and numpy. Implemented backpropagation algorithm and Stochastic Gradient Descent. Trained on the MNIST dataset.",
+      technologies: ["Python", "NumPy", "TypeScript"],
+      links: [
+        {
+          type: "Demo",
+          href: "https://handwritten-digit-recogniser.vercel.app/",
+          icon: <Icons.globe className="size-3" />,
+        },
+        {
+          type: "Source",
+          href: "https://github.com/zdravkodanailov7/handwritten-digit-recogniser",
+          icon: <Icons.github className="size-3" />,
+        },
+        {
+          type: "Blog",
+          href: "/blog/digit-recogniser",
+          icon: <NotebookIcon className="size-3" />,
+        },
+      ],
+      image: "/content/digit-recogniser/digit-recogniser.png",
+      video: "",
+    },
+    {
       title: "CreateMore",
       href: "/blog/createmore",
       dates: "Sep 2024 - Present",

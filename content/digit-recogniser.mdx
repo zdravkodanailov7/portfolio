@@ -1,0 +1,267 @@
+---
+title: "Handwritten Digit Recogniser"
+publishedAt: "2025-09-06"
+---
+
+<img src="/content/digit-recogniser/digit-recogniser.png" alt="Digit Recogniser" style="width: 100%; min-width: 800px; height: auto;" />
+
+## TLDR: 
+This is a deep-dive blog post on my journey building a handwritten digit recogniser web app using a neural network I built from scratch. I start with detailed notes on neural network basics (structure, weights, learning via gradient descent/backprop), then cover implementing the model in Python (training on MNIST, exporting to JSON). Finally, I detail the Next.js frontend (grid drawing, mobile fixes, preprocessing for accuracy). Source code on [Github](https://github.com/zdravkodanailov7/handwritten-digit-recogniser), app [live](https://handwritten-digit-recogniser.vercel.app/) on Vercel.
+
+## Table of Contents
+
+1. [Introduction and Motivation](#introduction-and-motivation)
+2. [The Problem](#the-problem)
+3. [Learning the Theory – Neural Network Basics](#learning-the-theory--neural-network-basics)
+   - 3.1 [Neurons](#neurons)
+   - 3.2 [The Hidden Layers](#the-hidden-layers)
+   - 3.3 [Layers Break Problems into Bite Sized Pieces](#layers-break-problems-into-bite-sized-pieces)
+   - 3.4 [How Information Passes Between Layers](#how-information-passes-between-layers)
+   - 3.5 [Sigmoid Squishification](#sigmoid-squishification)
+   - 3.6 [More Neurons](#more-neurons)
+   - 3.6 [More Compact Notation](#more-compact-notation)
+   - 3.7 [The Network Is Just a Function](#the-network-is-just-a-function) 
+4. [How the Network Learns](#how-the-network-learns)
+   - 4.1 [The Cost Function](#the-cost-function)
+   - 4.2 [The Cost Over Many Examples](#the-cost-over-many-examples)
+   - 4.3 [Minimizing the Cost Function](#minimizing-the-cost-function)
+   - 4.4 [Beyond Slope: Using The Gradient](#beyond-slope-using-the-gradient)
+   - 4.5 [Another Way to Think About The Gradient](#another-way-to-think-about-the-gradient)
+5. [Implementing the Model in Python](#implementing-the-model-in-python)
+   - 5.1 [Coding the Neural Network Class](#coding-the-neural-network-class)
+   - 5.2 [Training on MNIST Data](#training-on-mnist-data)
+   - 5.3 [Testing and Saving the Model](#testing-and-saving-the-model)
+   - 5.4 [Exporting to JSON for the Web App](#exporting-to-json-for-the-web-app)
+6. [Building the Next.js Web App](#building-the-nextjs-web-app)
+   - 6.1 [Project Setup and Dependencies](#project-setup-and-dependencies)
+   - 6.2 [Porting the Network to TypeScript](#porting-the-network-to-typescript)
+   - 6.3 [Interactive Grid Drawing Interface](#interactive-grid-drawing-interface)
+   - 6.4 [Preprocessing Inputs for Better Accuracy](#preprocessing-inputs-for-better-accuracy)
+   - 6.5 [Mobile Fixes and Challenges](#mobile-fixes-and-challenges)
+   - 6.6 [Deployment on Vercel](#deployment-on-vercel)
+7. [Challenges and Learnings](#challenges-and-learnings)
+8. [Conclusion and Next Steps](#conclusion-and-next-steps)
+
+## Introduction and Motivation
+
+Ok, so I want to build a web app where a user draws a number 0-9 and the computer does bish bash bosh and predicts what number you have drawn. How do you do this? I dont know, so first I gathered knowledge. As mostly a visual learner I found [3Blue1Brown's videos](https://www.youtube.com/watch?v=aircAruvnKk&list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi) on the topic very useful on getting an intuintive understanding of the concepts, I made some notes on these videos so I wasn't just passively learning. To then get deeper into it I read Michael Nielsen's [Neural Networks and Deep Learning](http://neuralnetworksanddeeplearning.com/) book, it really helped having the intuitive knowledge from the videos beforehand.
+
+My motivation? Pure curiosity about how machine learning really works, plus a cool portfolio project. Knowledge gained is the ammo, motivation is my gun, now let's shoot it straight into the problem at hand.
+
+## The Problem
+
+How is it that our brain can see a number 3 and know it's a number 3? That's crazy because you can look one 3 written one way and another 3 written a completely different way, could even be doctor's handwriting and still your brain would know what number it is!
+
+<img src="/content/digit-recogniser/different-threes.png" alt="Three Threes" style="width: 100%; min-width: 600px; height: auto;" />
+
+Essentially, my task is to write some code that would mimic what the brain is doing, it would be taking in an image of a number (drawn by a user) and resolving it to a digit from zero to nine. This super trivial task that our brain does now becomes quite tricky when you have to turn it into code.
+
+## Learning the Theory – Neural Network Basics
+
+Alright, so we will use a neural network to solve this problem, but first of all, what is a neural network? Well, there are many variants, for example convolutional neural networks (CNN), recurrent neural networks (RNN), transformers, and many more. But lets start by learning about the most basic one of them all, the plain vanilla form of a neural network.
+
+<img src="/content/digit-recogniser/plain-vanilla-nn.png" alt="Vanilla NN" style="width: 100%; min-width: 600px; height: auto;" />
+
+### Neurons
+
+To break it down super simply a neuron is a thing that holds a number, thats it, specifically a number between 0 and 1.
+
+For example, our images will be 28x28 pixels meaning we will have 784 neurons, each of which holds a number. This number corresponds to its grayscale value of the pixel, 0 for black and up to 1 for white ones.
+
+<img src="/content/digit-recogniser/activations.svg" alt="Activations" style="width: 100%; min-width: 600px; height: auto;" />
+
+You could think of this as being analogous to how neurons in the brain can be active or inactive.
+
+All of our images will be 28x28 pixels, in total 784 pixels, each with a brightness value between 0.0 and 1.0. To represent this in the network, we create a layer of 784 neurons where each neuron corresponds to a particular pixel.
+
+<img src="/content/digit-recogniser/highlight-first-layer.png" alt="The First Layer" style="width: 100%; min-width: 600px; height: auto;" />
+
+That's our first layer, called the input layer done. Now when we want to pass an image into the network, we'll set each input neuron's activation to the brightness of the corresponding pixel.
+
+Now lets jump over to the last layer of our network, it will have 10 neurons, each one representing one of the possible digits. The activation in tehse neurons, again between 0.0 and 1.0, will represent how much the system thinks an image corresponds to a given digit.
+
+<img src="/content/digit-recogniser/output-layer.png" alt="Output Layer" style="width: 100%; min-width: 600px; height: auto;" />
+
+### The Hidden Layers
+
+There are also a couple of layers in between called the "hidden layers", don't worry about these for now but do know that they exist.
+
+<img src="/content/digit-recogniser/hidden-layers.png" alt="Hidden Layers" style="width: 100%; min-width: 600px; height: auto;" />
+
+Here you can see two hidden layers each with 16 neurons. Why these choices? Completely arbitrary, but also 16 is just a nice number.
+
+You will notice how in these drawings each neuron from one layer is connected to each neuron from the next. This is because activations in one layer determine the activations in the next layer.
+
+However, not all of these connections are equal, some are stronger than others and determining how strong these connections are is the heart of how neural networks operate.
+
+---
+
+Before we jump into the math behind them lets think a little bit more broadly about how we might expect a layered structure like this to behave.
+
+When you or I recognise digits we piece together various different components like loops and lines, so each digit can be broken down into smaller recognisable structures.
+
+<img src="/content/digit-recogniser/loops-and-lines.png" alt="Loops and Lines" style="width: 100%; min-width: 600px; height: auto;" />
+
+In an ideal scenario we might hope that each neuron in the second to last layer corresponds to one of these subcomponents. Such that anytime you feed an image with a loop up top, there is some specific neuron whose activation will be close to 1.0.
+
+<img src="/content/digit-recogniser/upper-loop-neuron.png" alt="Upper Loop Neuron" style="width: 100%; min-width: 600px; height: auto;" />
+
+And not just that *exact* loop of pixels. The hope would be that any generally loopy pattern toward the top of image sets off this neuron. That way, going from the third layer to the lasy one would just require learning which combinations of subcomponents correspond to which digits.
+
+But how do you even recognise these subcomponents? Well recognising a loop can also be broken down into subproblems. One reasonable way to do that would be to first recognise the various edges that make it up.
+
+<img src="/content/digit-recogniser/loop-edges.png" alt="Loop Edges" style="width: 100%; min-width: 600px; height: auto;" />
+
+In the same way, long lines, like those found in the digits 1, 4, or 7, can be thought of as a single extended edge, or perhaps as a specific arrangement of multiple shorter edges.
+
+<img src="/content/digit-recogniser/line-edges.png" alt="Line Edges" style="width: 100%; min-width: 600px; height: auto;" />
+
+You can think of it like this, maybe each neuron in the second layer is tuned to spot a tiny edge somewhere in the image, so when you show the network a picture, those neurons light up for all the little edges they find, then the third layer picks up on bigger patterns, like loops or long lines, and finally, one of the neurons in the last layer gets excited if it thinks the image matches a certain digit.
+
+<img src="/content/digit-recogniser/layer-hypothesis.png" alt="Layer Hypothesis" style="width: 100%; min-width: 600px; height: auto;" />
+
+Of course, there's no guarantee that our network will end up working exactly this way, but it's a reasonable expectation to have in mind as we design it.
+
+### Layers Break Problems into Bite Sized Pieces
+
+You can imagine how being able to detect edges and patterns would also be useful for other image recognition tasks.
+
+<img src="/content/digit-recogniser/edge-detection.png" alt="Edge Detection" style="width: 100%; min-width: 600px; height: auto;" />
+
+And it’s not just about image recognition, you can actually break down all kinds of smart tasks into layers like this. Take speech, for instance, you start with raw audio, then pick out individual sounds, those sounds come together to make syllables, which then form words, and those words build up into phrases and even more complex ideas.
+
+<img src="/content/digit-recogniser/audio.png" alt="Audio" style="width: 100%; min-width: 600px; height: auto;" />
+
+What’s really nice about having layers in a neural network is that it helps you tackle tough problems by breaking them into smaller, more manageable pieces, making it much easier to move from one layer to the next.
+
+### How Information Passes Between Layers
+
+Alright, so now that we have this general idea in mind, how would you actually go about building it? What we really want is some way to take the raw pixels and combine them into edges, then combine those edges into bigger patterns, and finally turn those patterns into digits. It would be really neat if each of these steps could use the same kind of math, making the whole process feel unified and simple.
+
+Lets zoom in on one very specific example, say that the hope is for this one particular neuron in the second layer to pick up on whether or not the image has an edge in this spot here:
+
+<img src="/content/digit-recogniser/desired-edge.png" alt="Desired Edge" style="width: 100%; min-width: 600px; height: auto;" />
+
+With this in mind, what parameters do you think the network should have, what knobs and dials should you be able to tweak so that it's expressive enough to potentially capture this pattern? Or other pixel patterns, like for example the pattern that several edges can make a loop, and other such things.
+
+So, what we’re going to do is give each connection between our neuron and the ones in the first layer its own weight. You can just think of these weights as regular numbers that help decide how much influence each input has.
+
+<img src="/content/digit-recogniser/weights-blue.png" alt="Weights" style="width: 100%; min-width: 600px; height: auto;" />
+
+You can think of each weight as showing how much a neuron in the first layer influences this particular neuron in the second layer. If a neuron in the first layer is active, a positive weight means it encourages the second layer neuron to turn on too, while a negative weight means it tries to keep the second layer neuron off.
+
+All these weights work together, sometimes helping and sometimes working against each other, but the idea is that when you add up all their effects, the neuron in the second layer will be pretty good at spotting the edge we want, as long as the weights are chosen well.
+
+To figure out what the second layer neuron should do, you just take all the activations from the first layer, multiply each by its weight, and add them up.
+
+<img src="/content/digit-recogniser/weighted-sum.png" alt="Weighted Sum" style="width: 100%; min-width: 600px; height: auto;" />
+
+It can be helpful to think of these weights as being organised into a grid of their own:
+
+<img src="/content/digit-recogniser/weights-square-blue.png" alt="Weights Square" style="width: 100%; min-width: 600px; height: auto;" />
+
+Blue pixels indicate a positive weight, and red pixels indicate a negative weight, with the brightness of that pixel being a depiction of the weight's value.
+
+So what if we made the weights associated with almost all the pixels 0, except for some positive weights associated with these pixels in the region we want to detect an edge?
+
+<img src="/content/digit-recogniser/weights-attempt-1.png" alt="Weights Attempt 1" style="width: 100%; min-width: 600px; height: auto;" />
+
+So, when you take the weighted sum of all the pixel values, what you’re really doing is just adding up the values of the pixels in the area you care about.
+
+The thing is, if you set up your weights like this, you’ll end up detecting not just edges, but also any big bright blobs in that region. If you really want the neuron to focus on edges, it helps to add some negative weights around the area you’re interested in. That way, the sum gets highest when the pixels in the main region are bright, but the ones around it stay dark.
+
+<img src="/content/digit-recogniser/weights-attempt-2.png" alt="Weights Attempt 2" style="width: 100%; min-width: 600px; height: auto;" />
+
+### Sigmoid Squishification
+
+When you add everything up with the weighted sum, you can actually get any number at all, but for our network, we want the activations to always fall between 0 and 1. To make that happen, we usually run this sum through a special function that squeezes all possible numbers into that range.
+
+<video src="/content/digit-recogniser/number-line-squish.mp4" style="width: 100%; min-width: 600px; height: auto;" autoplay muted playsinline controls></video>
+
+A really popular choice for this is the "sigmoid" function, which is also called the logistic curve, and we use the symbol σ (sigma) for it. If you feed in a very negative number, the output will be close to 0, and if you give it a really positive number, it’ll be close to 1. In the middle, it smoothly transitions between those two, so the neuron's activation basically tells you how positive the weighted sum is.
+
+<img src="/content/digit-recogniser/sigmoid.png" alt="Sigmoid" style="width: 100%; min-width: 600px; height: auto;" />
+
+But maybe we don’t actually want the neuron to turn on just because the weighted sum is a little above zero. Instead, we might want it to only become active when that sum gets pretty big, like above 10. In other words, we’d like to set things up so the neuron usually stays off unless there’s a strong enough signal, which is where the idea of a bias comes in.
+
+To do this, we simply add a number, such as -10, to the weighted sum before we pass it through the sigmoid function, which squeezes everything into that nice range between 0 and 1.
+
+We call this additional number a **bias**.
+
+<img src="/content/digit-recogniser/bias.png" alt="Bias" style="width: 100%; min-width: 600px; height: auto;" />
+
+So the weights tell you what pixel pattern this neuron in the second layer is picking up on, and the bias tells you how big that weighted sum needs to be before the neuron gets meaningfully active.
+
+### More Neurons
+
+And that’s just one neuron! Every single neuron in the second layer is connected to all 784 neurons from the first layer, each with its own weight. On top of that, each neuron gets its own bias, which is just another number added to the weighted sum before we run it through the sigmoid. It’s a lot to keep track of, right? For this hidden layer with 16 neurons, that means there are 784 times 16 weights, plus 16 biases.
+
+And remember, this is only for the connections between the first and second layers. The other layers have their own sets of weights and biases too. Altogether, this network ends up with 13,002 weights and biases in total. That’s 13,002 little knobs you can adjust to change how the network behaves.
+
+<img src="/content/digit-recogniser/13002-blue.png" alt="13002-blue" style="width: 100%; min-width: 600px; height: auto;" />
+
+When we talk about *learning* in this context, we’re really just asking the computer to figure out the best possible values for all these different numbers, so it can actually solve the problem we care about.
+
+Here’s a little thought experiment that’s both kind of amusing and a bit overwhelming, imagine trying to set every single weight and bias by hand. You’d have to decide exactly how to tweak things so the second layer notices edges, the third layer picks up on certain patterns, and so on.
+
+Honestly, I find it pretty satisfying to think about what these weights and biases are actually doing, instead of just seeing the whole network as a mysterious black box. If the network isn’t behaving the way you expect, having some intuition about what these numbers mean gives you a place to start tinkering and improving things.
+
+And even when the network does work, but maybe not for the reasons you thought, poking around in the weights and biases can really help you question your assumptions and see just how many different ways the network could be solving the problem.
+
+### More Compact Notation
+
+Writing out the formula for how a single neuron gets its activation from the previous layer can get pretty messy and awkward.
+
+<img src="/content/digit-recogniser/annotated-equation.png" alt="annotated-equation" style="width: 100%; min-width: 600px; height: auto;" />
+
+Keeping track of all those little indices is a pain, so let me show you a much tidier way to represent all these connections.
+
+Rather than working out each weighted sum one at a time, we can use matrix multiplication to figure out all the activations for the next layer in one go.
+
+To start, you just gather up all the activations from the first layer and stack them into a column vector.
+
+<video src="/content/digit-recogniser/activation-vector.mp4" style="width: 100%; min-width: 600px; height: auto;" autoplay muted playsinline controls></video>
+
+Then, you arrange all the weights into a matrix, where each row matches up with all the connections from the first layer to a specific neuron in the next layer.
+
+<video src="/content/digit-recogniser/weight-matrix.mp4" style="width: 100%; min-width: 600px; height: auto;" autoplay muted playsinline controls></video>
+
+When you multiply the weight matrix by the activation vector, you get another column vector, and each entry in that vector is the weighted sum for a neuron in the next layer.
+
+<video src="/content/digit-recogniser/weighted-sum.mp4" style="width: 100%; min-width: 600px; height: auto;" autoplay muted playsinline controls></video>
+
+Instead of adding the bias to each value separately, we just collect all the biases into their own vector, and add that whole bias vector to the result of the matrix multiplication.
+
+<video src="/content/digit-recogniser/bias-vector.mp4" style="width: 100%; min-width: 600px; height: auto;" autoplay muted playsinline controls></video>
+
+Finally, we apply the sigmoid function to every entry in that vector, so each neuron's activation gets squished into the range between 0 and 1.
+
+<video src="/content/digit-recogniser/sigmoid.mp4" style="width: 100%; min-width: 600px; height: auto;" autoplay muted playsinline controls></video>
+
+Once you start using symbols for the weight matrix and these vectors, you can write out the whole process of moving from one layer’s activations to the next in a really compact and tidy way.
+
+<video src="/content/digit-recogniser/final-equation.mp4" style="width: 100%; min-width: 600px; height: auto;" autoplay muted playsinline controls></video>
+
+This approach makes the code way cleaner and a lot faster, since most libraries are really good at matrix multiplication.
+
+Just as a quick aside, because machine learning and neural networks have gotten so popular, there’s been a ton of progress in special hardware that can do matrix multiplication super quickly. For example, Google’s “Tensor Processing Unit,” or TPU, is built for this kind of thing.
+
+Honestly, when you hear about some new “neural architecture” that’s supposed to be a big leap for AI, a lot of the time, what’s really going on is that they’ve found a way to multiply matrices even faster.
+
+To be fair, this hardware can do more than just matrix multiplication, but that’s the main thing that sets it apart. And if you get what we just talked about, you’ll see why that matters.
+
+### The Network Is Just a Function
+
+Earlier, I mentioned that you can think of these neurons as just “things that hold numbers.” But really, the number each neuron holds changes depending on the image you give the network. So, it’s actually more accurate to picture each neuron as a little function. It takes in all the activations from the previous layer and gives you back a number between 0 and 1.
+
+If you zoom out, the whole network itself is just one big function. You feed in 784 numbers (which come from the image’s pixels), and out come 10 numbers (one for each possible digit). Sure, it’s a wildly complicated function, since it’s got over 13,000 parameters (all those weights and biases), and it’s made up of lots of matrix multiplications and sigmoid squishing steps. But at the end of the day, it’s still just a function.
+
+<img src="/content/digit-recogniser/neural-network-function.png" alt="neural-network-function" style="width: 100%; min-width: 600px; height: auto;" />
+
+Honestly, it’s kind of comforting that the network looks so complex. If it were much simpler, it probably wouldn’t stand a chance at figuring out something as tricky as recognising handwritten digits.
+
+But that brings up a big question of how does the network actually learn the right weights and biases from the data in the first place?
+
+## How the Network Learns
+
+(writing in progress)
