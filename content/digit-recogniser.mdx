@@ -1,6 +1,6 @@
 ---
 title: "Handwritten Digit Recogniser"
-publishedAt: "2025-09-06"
+publishedAt: "2025-09-07"
 ---
 
 <img src="/content/digit-recogniser/digit-recogniser.png" alt="Digit Recogniser" style="width: 100%; min-width: 800px; height: auto;" />
@@ -24,23 +24,29 @@ This is a deep-dive blog post on my journey building a handwritten digit recogni
 4. [How the Network Learns](#how-the-network-learns)
    - 4.1 [The Cost Function](#the-cost-function)
    - 4.2 [The Cost Over Many Examples](#the-cost-over-many-examples)
-   - 4.3 [Minimizing the Cost Function](#minimizing-the-cost-function)
+   - 4.3 [Minimising the Cost Function](#minimising-the-cost-function)
    - 4.4 [Beyond Slope: Using The Gradient](#beyond-slope-using-the-gradient)
    - 4.5 [Another Way to Think About The Gradient](#another-way-to-think-about-the-gradient)
-5. [Implementing the Model in Python](#implementing-the-model-in-python)
-   - 5.1 [Coding the Neural Network Class](#coding-the-neural-network-class)
-   - 5.2 [Training on MNIST Data](#training-on-mnist-data)
-   - 5.3 [Testing and Saving the Model](#testing-and-saving-the-model)
-   - 5.4 [Exporting to JSON for the Web App](#exporting-to-json-for-the-web-app)
-6. [Building the Next.js Web App](#building-the-nextjs-web-app)
-   - 6.1 [Project Setup and Dependencies](#project-setup-and-dependencies)
-   - 6.2 [Porting the Network to TypeScript](#porting-the-network-to-typescript)
-   - 6.3 [Interactive Grid Drawing Interface](#interactive-grid-drawing-interface)
-   - 6.4 [Preprocessing Inputs for Better Accuracy](#preprocessing-inputs-for-better-accuracy)
-   - 6.5 [Mobile Fixes and Challenges](#mobile-fixes-and-challenges)
-   - 6.6 [Deployment on Vercel](#deployment-on-vercel)
-7. [Challenges and Learnings](#challenges-and-learnings)
-8. [Conclusion and Next Steps](#conclusion-and-next-steps)
+5. [What is Backpropagation?](#what-is-backpropagation)
+   - 5.1 [The Intuition for Backpropagation](#the-intuition-for-backpropagation)
+   - 5.2 [Changing the Bias](#changing-the-bias)
+   - 5.3 [Changing the Weights](#changing-the-weights)
+   - 5.4 [Changing the Activations](#changing-the-activations)
+   - 5.5 [Repeating for All Training Examples](#repeating-for-all-training-examples)
+   - 5.6 [Stochastic Gradient Descent](#stochastic-gradient-descent)
+   - 5.7 [Conclusion](#conclusion)
+6. [Implementing the Model in Python](#implementing-the-model-in-python)
+   - 6.1 [Coding the Neural Network Class](#coding-the-neural-network-class)
+   - 6.2 [Training on MNIST Data](#training-on-mnist-data)
+   - 6.3 [Testing and Saving the Model](#testing-and-saving-the-model)
+   - 6.4 [Exporting to JSON for the Web App](#exporting-to-json-for-the-web-app)
+7. [Building the Next.js Web App](#building-the-nextjs-web-app)
+   - 7.1 [Porting the Network to TypeScript](#porting-the-network-to-typescript)
+   - 7.2 [Interactive Grid Drawing Interface](#interactive-grid-drawing-interface)
+   - 7.3 [Preprocessing Inputs for Better Accuracy](#preprocessing-inputs-for-better-accuracy)
+   - 7.4 [Deployment on Vercel](#deployment-on-vercel)
+8. [Challenges and Learnings](#challenges-and-learnings)
+9. [The End](#the-end)
 
 ## Introduction and Motivation
 
@@ -66,7 +72,7 @@ Alright, so we will use a neural network to solve this problem, but first of all
 
 To break it down super simply a neuron is a thing that holds a number, thats it, specifically a number between 0 and 1.
 
-For example, our images will be 28x28 pixels meaning we will have 784 neurons, each of which holds a number. This number corresponds to its grayscale value of the pixel, 0 for black and up to 1 for white ones.
+For example, our images will be 28x28 pixels meaning we will have 784 neurons, each of which holds a number. This number corresponds to its greyscale value of the pixel, 0 for black and up to 1 for white ones.
 
 <img src="/content/digit-recogniser/activations.svg" alt="Activations" style="width: 100%; min-width: 600px; height: auto;" />
 
@@ -96,7 +102,7 @@ However, not all of these connections are equal, some are stronger than others a
 
 ---
 
-Before we jump into the math behind them lets think a little bit more broadly about how we might expect a layered structure like this to behave.
+Before we jump into the maths behind them lets think a little bit more broadly about how we might expect a layered structure like this to behave.
 
 When you or I recognise digits we piece together various different components like loops and lines, so each digit can be broken down into smaller recognisable structures.
 
@@ -106,7 +112,7 @@ In an ideal scenario we might hope that each neuron in the second to last layer 
 
 <img src="/content/digit-recogniser/upper-loop-neuron.png" alt="Upper Loop Neuron" style="width: 100%; min-width: 600px; height: auto;" />
 
-And not just that *exact* loop of pixels. The hope would be that any generally loopy pattern toward the top of image sets off this neuron. That way, going from the third layer to the lasy one would just require learning which combinations of subcomponents correspond to which digits.
+And not just that *exact* loop of pixels. The hope would be that any generally loopy pattern towards the top of image sets off this neuron. That way, going from the third layer to the lasy one would just require learning which combinations of subcomponents correspond to which digits.
 
 But how do you even recognise these subcomponents? Well recognising a loop can also be broken down into subproblems. One reasonable way to do that would be to first recognise the various edges that make it up.
 
@@ -136,7 +142,7 @@ What’s really nice about having layers in a neural network is that it helps yo
 
 ### How Information Passes Between Layers
 
-Alright, so now that we have this general idea in mind, how would you actually go about building it? What we really want is some way to take the raw pixels and combine them into edges, then combine those edges into bigger patterns, and finally turn those patterns into digits. It would be really neat if each of these steps could use the same kind of math, making the whole process feel unified and simple.
+Alright, so now that we have this general idea in mind, how would you actually go about building it? What we really want is some way to take the raw pixels and combine them into edges, then combine those edges into bigger patterns, and finally turn those patterns into digits. It would be really neat if each of these steps could use the same kind of maths, making the whole process feel unified and simple.
 
 Lets zoom in on one very specific example, say that the hope is for this one particular neuron in the second layer to pick up on whether or not the image has an edge in this spot here:
 
@@ -264,4 +270,597 @@ But that brings up a big question of how does the network actually learn the rig
 
 ## How the Network Learns
 
-(writing in progress)
+What really sets machine learning apart from traditional computer science is that you don’t spell out step-by-step instructions for the task you want to solve. For example, you never actually write out a set of rules for recognising digits. Instead, you build a system that can look at lots of example images of handwritten digits, each one labelled with the correct answer, and then it tweaks its 13,002 weights and biases to get better at making the right guesses.
+
+All those labelled images we give to the network are called the “training data”.
+
+<img src="/content/digit-recogniser/training-data.png" alt="training-data" style="width: 100%; min-width: 600px; height: auto;" />
+
+The hope is that, thanks to the way the network is structured, it will pick up on patterns that help it do well not just on the training data, but also on new images it hasn’t seen before. To check if that’s happening, we test the network after training by giving it more labelled images it hasn’t seen and seeing how well it does at classifying them.
+
+<img src="/content/digit-recogniser/training-vs-testing.png" alt="training-vs-testing" style="width: 100%; min-width: 600px; height: auto;" />
+
+This whole process needs a lot of data. Luckily, the people behind the MNIST database have put together tens of thousands of handwritten digit images, each one labelled with the correct number, and they’ve made it available for anyone to use.
+
+I should point out that although it can be easy to describe a machine as "learning", once you see how it works, it feels a lot less like some crazy sci-fi premise and a lot more like a calculus exercise. It really just comes down to finding the minimum of a specific function.
+
+### The Cost Function
+
+Just to recap, everything the network does depends on its weights and biases. The weights basically tell you how strong the connections are between neurons in one layer and the next, while each bias kind of nudges its neuron to be more likely to fire or stay quiet.
+
+<img src="/content/digit-recogniser/weights-and-biases.png" alt="weights-and-biases" style="width: 100%; min-width: 600px; height: auto;" />
+
+When you first set up the network, you just pick random numbers for all the weights and biases. At this point, the network is going to do a terrible job on any training example, because it’s just guessing.
+
+Like, if you give it a picture of a 3, the output you get is just a jumble of numbers that doesn’t make any sense:
+
+<img src="/content/digit-recogniser/random-trash.png" alt="random-trash" style="width: 100%; min-width: 600px; height: auto;" />
+
+So, how do you actually tell if the computer is getting things wrong, and how do you help it get better?
+
+So, the next step is to set up something called a **cost function**. This is basically a way to let the computer know, “Hey, that output isn’t what we’re looking for. Most of those neurons should be at zero, except for the one that matches the correct answer, which should be at one. What you just gave me is way off.”
+
+<img src="/content/digit-recogniser/cost-of-difference.png" alt="cost-of-difference" style="width: 100%; min-width: 600px; height: auto;" />
+
+If you want to put it in more mathematical terms, you just take the difference between what the network actually spits out and what you want it to say, square those differences for each output, and then add them all up. That total is what we call the “**cost**” for that particular training example.
+
+<img src="/content/digit-recogniser/cost-calculation.png" alt="cost-calculation" style="width: 100%; min-width: 600px; height: auto;" />
+
+The idea is that the cost will be low when the network gets the answer right with confidence, and it’ll be high when the network is confused or just plain wrong.
+
+### The Cost Over Many Examples
+
+But we don’t just care about how the network does on a *single* image. To really see how well it’s working, we have to look at the **average** cost across all those tens of thousands of training images. That average basically tells us how much the network is struggling overall, or how much room there is for improvement.
+
+Now, this isn’t a simple thing to calculate. Just as a reminder, the network itself is already a pretty complex function, with 784 inputs (those are the pixel values), 10 outputs, and 13,002 parameters.
+
+<img src="/content/digit-recogniser/neural-network-function.png" alt="neural-network-function" style="width: 100%; min-width: 600px; height: auto;" />
+
+The cost function adds another layer of complexity on top. Instead of taking in images, it takes all 13,002 weights and biases as its input, and then gives you a single number that sums up how well (or badly) those weights and biases are doing. It’s all based on how the network performs across the entire training set, so you can think of the training data as a huge part of what shapes this cost function.
+
+<img src="/content/digit-recogniser/cost-function.png" alt="cost-function" style="width: 100%; min-width: 600px; height: auto;" />
+
+### Minimising the Cost Function
+
+Just telling the computer it’s doing a bad job isn’t enough. What we really want is to guide it, to show it exactly how to tweak those 13,002 weights and biases so it can actually get better.
+
+We can do better! Growth mindset!
+<img src="https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnc0bGNmOGw0cjdpamMzenlwNjIybm53aDZwbWNjMGprdHg1cnpvNCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/d3mlE7uhX8KFgEmY/giphy.gif" alt="growth-mindset" style="width: 100%; min-width: 600px; height: auto;" />
+
+To make things a bit simpler, instead of wrestling with a cost function that has 13,002 different inputs, let’s just imagine a much easier case: a function that takes in one number and spits out one number.
+
+<img src="/content/digit-recogniser/single-input-cost.png" alt="single-input-cost" style="width: 100%; min-width: 600px; height: auto;" />
+
+So, how do you actually find the input that makes this cost function as small as possible?
+
+If you’ve done some calculus before, you might know that sometimes you can find the minimum by setting the slope to zero and solving for it. But for really complicated functions, that’s just not practical, and for our giant 13,002 input function, it’s definitely not going to work.
+
+<img src="/content/digit-recogniser/infeasible-minimum.png" alt="infeasible-minimum" style="width: 100%; min-width: 600px; height: auto;" />
+
+A much more practical approach is to just pick a random starting point and then figure out which way to move to make the output smaller. Basically, you check the slope of the function where you are. If the slope is negative, you move to the right. If it’s positive, you move to the left.
+
+<video src="/content/digit-recogniser/follow-slope.mp4" style="width: 100%; min-width: 600px; height: auto;" autoplay muted playsinline controls></video>
+
+You keep checking the slope and taking little steps in the right direction, and over time, you’ll get closer and closer to a low point in the function.
+
+The best way to picture this is to imagine a ball rolling down a hill:
+
+<video src="/content/digit-recogniser/balls-rolling-down.mp4" style="width: 100%; min-width: 600px; height: auto;" autoplay muted playsinline controls></video>
+
+Even with this simple cost function that only takes one input, you can end up in all sorts of different valleys depending on where you start. Basically, if you pick a random starting point, you might not always find the lowest possible spot, just a low spot nearby, and there’s no promise it’s the very best one.
+
+Another thing to notice is that if you make your steps depend on how steep the slope is, your steps naturally get smaller as you get closer to the bottom. When the slope flattens out near a minimum, you’ll take tinier and tinier steps, which helps you avoid jumping past the lowest point.
+
+<video src="/content/digit-recogniser/proportional-to-slope.mp4" style="width: 100%; min-width: 600px; height: auto;" autoplay muted playsinline controls></video>
+
+Now, let’s make things a little more interesting. Imagine a function that takes two inputs instead of one. You can picture the input space as a flat plane, like an xy-grid, and the cost function forms a kind of landscape or surface above it.
+
+<img src="/content/digit-recogniser/2-input-cost.png" alt="2-input-cost" style="width: 100%; min-width: 600px; height: auto;" />
+
+Instead of just thinking about the slope in one direction, you’re now figuring out which way to move in this plane to make the cost drop the fastest. It’s still like a ball rolling down a hill, just in a more complex landscape.
+
+### Beyond Slope: Using the Gradient
+
+When you’re working in higher dimensions, talking about the “slope” as just a single number doesn’t really make sense anymore. Instead, you need a whole vector to show you which way is the steepest uphill.
+
+If you’ve done a bit of multivariable calculus, you might recognise this as the “gradient”. The gradient points in the direction where the function increases the fastest, so if you want to make the function bigger, you’d step that way.
+
+But since we want to make our cost function smaller, we actually want to go in the opposite direction, so we take the negative of the gradient. The length of this gradient vector also tells us how steep things are at that spot.
+
+<img src="/content/digit-recogniser/negative-gradient.png" alt="negative-gradient" style="width: 100%; min-width: 600px; height: auto;" />
+
+So, the basic idea for finding the minimum is to figure out the gradient, take a step downhill, and keep repeating that. This whole process is called “**gradient descent**”.
+
+<img src="/content/digit-recogniser/gradient-descent.png" alt="gradient-descent" style="width: 100%; min-width: 600px; height: auto;" />
+
+Just to remind you, our cost function is built to measure how badly the network is doing on the training data. So, if we keep adjusting the weights and biases to make the cost go down, the network should get better at its job.
+
+When you actually do this in practice, each step looks like −η∇C, where η (eta) is the learning rate. If you make η bigger, your steps get bigger, so you might reach the minimum faster, but you also risk overshooting and bouncing around too much.
+
+This whole idea works the same way even if your function has 13,002 inputs instead of just two. I’m still showing the two input version because it’s way easier to picture, but in reality, we’re just nudging things around in a space that’s way too big to imagine. I’ll try to explain it in a way that doesn’t need a picture now.
+
+### Another Way to Think About The Gradient
+
+Let’s try to picture all the weights and biases in the whole network as one giant column of numbers, there are 13,002 of them in total. Now, the negative gradient of the cost function is just another column with 13,002 numbers, one for each weight and bias.
+
+<video src="/content/digit-recogniser/gradient-nudge-weights.mp4" style="width: 100%; min-width: 600px; height: auto;" autoplay muted playsinline controls></video>
+
+The column on the left is every single weight and bias in the network, and the column on the right is the negative gradient. That negative gradient is basically a list of tiny adjustments you should make to each weight and bias if you want to move in the direction that lowers the cost the fastest.
+
+This negative gradient points you in the best direction to tweak all 13,002 numbers at once, so the cost function drops as quickly as possible.
+
+Each part of the negative gradient tells you two things: first, the sign tells you whether to nudge that particular weight or bias up or down, and second, the size tells you how important that nudge is compared to the others.
+
+<img src="/content/digit-recogniser/gradient-explained.png" alt="gradient-explained" style="width: 100%; min-width: 600px; height: auto;" />
+
+In our network, changing one weight might make a much bigger difference to the cost than changing another. For example, take a look at the image below and imagine the network is trying to decide if the input is a 3.
+
+<img src="/content/digit-recogniser/weight-importance.png" alt="weight-importance" style="width: 100%; min-width: 600px; height: auto;" />
+
+Some connections are just more important for getting the right answer on our training data. You can think of the gradient as a way of showing which weights and biases matter most, basically, which tweaks will give you the most improvement for your effort.
+
+So, if the cost function adds a layer of complexity on top of the neural network, the gradient adds another layer, showing you exactly how to adjust everything to make the cost drop as quickly as possible.
+
+<img src="/content/digit-recogniser/nudges-on-network.png" alt="nudges-on-network" style="width: 100%; min-width: 600px; height: auto;" />
+
+The method we use to actually figure out this gradient efficiently is called backpropagation, and that’s what we’ll look at next. I want to really break down what happens to each weight and bias for a single piece of training data, so you get a feel for what’s going on behind all the formulas.
+
+The main takeaway here, no matter how it’s implemented, is that when we say a network is “learning,” we’re really just talking about changing the weights and biases to make the cost function smaller, which means the network gets better at its job on the training data.
+
+## What is Backpropagation?
+
+Alright, so the negative gradient of the cost function is really just a giant vector with 13,002 numbers in it, and each one tells us how to tweak a specific weight or bias to make the cost go down as efficiently as possible. **Backpropagation is just the method we use to actually figure out what this negative gradient is.**
+
+Now, trying to picture a vector in 13,002 dimensions is pretty much impossible for any of us, so don’t worry if that sounds wild.
+
+<img src="/content/digit-recogniser/many-dimensions.png" alt="many-dimensions" style="width: 100%; min-width: 600px; height: auto;" />
+
+Instead, it helps to think about what each number in that vector means. The size of each part of the gradient tells you how much the cost function reacts to changes in that particular weight or bias.
+
+For example, let’s say you run the backpropagation process and get a negative gradient where one weight has a value of 3.2, and another has just 0.1:
+
+<img src="/content/digit-recogniser/relative-weight-importance.png" alt="relative-weight-importance" style="width: 100%; min-width: 600px; height: auto;" />
+
+What this means is that the cost function is 32 times more sensitive to changes in that first weight than the second one. So, if you nudge the first weight a little, you’ll see a much bigger effect on the cost than if you nudge the second one by the same amount.
+
+<video src="/content/digit-recogniser/nudge-weights.mp4" style="width: 100%; min-width: 600px; height: auto;" autoplay muted playsinline controls></video>
+
+### The Intuition for Backpropagation
+
+When I first started learning about backpropagation, what really tripped me up was all the complicated notation and trying to keep track of the different indices.
+
+<img src="/content/digit-recogniser/notation.png" alt="notation" style="width: 100%; min-width: 600px; height: auto;" />
+
+There’s just so much notation thrown around, and it can feel overwhelming. What does it all even mean?
+
+For this blog post, let’s not worry about the notation at all. Instead, I want to walk you through what actually happens to the weights and biases when we look at each training example.
+
+The full cost function is calculated by averaging the cost for each example across tens of thousands of training images, so when we update the weights and biases during a single step of gradient descent, it technically depends on every single example. In practice, though, we’ll use a little trick later on to avoid having to process every single example for every update, which makes things much more efficient.
+
+But for now, let’s just zoom in on one example, say, this image of a 2:
+
+<img src="/content/digit-recogniser/cost-of-one-example.png" alt="cost-of-one-example" style="width: 100%; min-width: 600px; height: auto;" />
+
+What does this one training example actually do to the way we should adjust the weights and biases?
+
+Since the network isn’t trained yet, the activations in the output layer are basically random. That’s not what we want, we want those activations to clearly point to the digit 2.
+
+But here’s the thing: we can’t directly change the activations themselves. The only things we can actually tweak are the weights and biases, so we need to figure out how to nudge those in a way that gets the output closer to what we want.
+
+<img src="/content/digit-recogniser/output-trash.png" alt="output-trash" style="width: 100%; min-width: 600px; height: auto;" />
+
+Even though we can’t just set the activations to what we want, it’s still useful to keep track of the changes we *wish* we could make in that output layer, and then work *backwards* to see how to adjust the weights and biases to make that happen.
+
+Because we want the network to recognise this as a 2, our goal is to boost the value of the neuron for digit 2, while nudging the values for all the other digits down:
+
+<img src="/content/digit-recogniser/classify-as-2.png" alt="classify-as-2" style="width: 100%; min-width: 600px; height: auto;" />
+
+And the amount we nudge each one really depends on how far off it is from what we want. If a neuron's output is way off, it needs a bigger adjustment, but if it's already pretty close, just a small tweak will do.
+
+Let’s zoom in on the neuron for the digit 2, since that’s the one we want to push higher:
+
+<img src="/content/digit-recogniser/focus-on-2-neuron.png" alt="focus-on-2-neuron" style="width: 100%; min-width: 600px; height: auto;" />
+
+The activation for this neuron (like 0.2 in this example) comes from adding up all the activations from the previous layer, each multiplied by its own weight, then adding a bias, and finally running that total through something like the sigmoid function to squish it between 0 and 1:
+
+<img src="/content/digit-recogniser/output-neuron-equation.png" alt="output-neuron-equation" style="width: 100%; min-width: 600px; height: auto;" />
+
+So, there are three main ways that can work together to bump up this activation:
+
+1. Increase the **bias**
+2. Increase the **weights**
+3. Change the **activations** from the previous layer
+
+### Changing the Bias
+
+Changing the bias associated with a neuron is the simplest way to change its activation. Unlike changing the weights or the activations from the previous layer, the effect of a change to the bias on the weighted sum is constant and predictable.
+
+
+### Changing the Weights
+
+So, how do we actually go about tweaking the weights? Well, since each weight gets multiplied by the activation from the previous layer, not all weights have the same impact. The ones connected to the brightest, most active neurons matter the most, because their activations are bigger, so any change to those weights will have a bigger effect on the output.
+
+<img src="/content/digit-recogniser/output-neuron-equation.png" alt="output-neuron-equation" style="width: 100%; min-width: 600px; height: auto;" />
+
+If you boost a weight that's linked to a really active neuron, you'll see a bigger change in the cost function than if you tweak a weight that's connected to a less active (dimmer) neuron. Of course, we're just talking about the effect for this one training example right now.
+
+When we're using gradient descent, it's not just about whether to increase or decrease each weight, it's about figuring out which changes will make the biggest difference for the least effort.
+
+<img src="/content/digit-recogniser/weights-proportional-to-activations.png" alt="weights-proportional-to-activations" style="width: 100%; min-width: 600px; height: auto;" />
+
+So, to get the most out of your updates, you want to adjust each weight in proportion to how active its associated neuron is.
+
+Interestingly, this idea is kind of similar to something in neuroscience called Hebbian theory, which is often summed up as "neurons that fire together wire together." In our case, the strongest connections (the biggest increases in weights) happen between the neurons that are most active and the ones we want to become more active.
+
+Basically, the neurons that light up when the network sees a 2 end up getting more strongly connected to the ones that represent the idea of a 2.
+
+<img src="/content/digit-recogniser/hebbian-theory.png" alt="hebbian-theory" style="width: 100%; min-width: 600px; height: auto;" />
+
+### Changing the Activations
+
+The third way to boost this neuron's activation is by tweaking the activations in the previous layer. Basically, if the neurons connected to our digit 2 neuron with positive weights light up more, and the ones connected with negative weights dim down, the digit 2 neuron will get more active.
+
+Just like with changing the weights, the most effective changes are the ones that match up with the size of the weights themselves. So, the bigger the weight, the more impact that neuron's activation will have if you adjust it:
+
+<img src="/content/digit-recogniser/activations-proportional-to-weights.png" alt="activations-proportional-to-weights" style="width: 100%; min-width: 600px; height: auto;" />
+
+But here’s the catch, we can’t actually reach in and directly set these activations. The only things we really control are the weights and biases. Still, it’s useful to keep track of what changes we’d want, just like we did for the output layer.
+
+<img src="/content/digit-recogniser/no-direct-influence.png" alt="no-direct-influence" style="width: 100%; min-width: 600px; height: auto;" />
+
+And keep in mind, this is just what the digit 2 output neuron wants. We also want all the other output neurons to quiet down, and each of those has its own idea about what should happen to the previous layer.
+
+<img src="/content/digit-recogniser/other-output-desires.png" alt="other-output-desires" style="width: 100%; min-width: 600px; height: auto;" />
+
+So, we add up the “wishes” from all ten output neurons. Each one suggests a little nudge for the second-to-last layer, based on its own weights and how much it needs to change.
+
+<img src="/content/digit-recogniser/propagate-backwards.png" alt="propagate-backwards" style="width: 100%; min-width: 600px; height: auto;" />
+
+This is really what “propagating backwards” means. By combining all these desired changes, we figure out how we’d like to adjust the second-to-last layer. Then, we repeat this same process for the layers before that, working our way back through the network.
+
+### Repeating for All Training Examples
+
+All the steps we just walked through are really just showing how a *single* training example wants to tweak all the different weights and biases in the network.
+
+<img src="/content/digit-recogniser/desires-of-2.png" alt="desires-of-2" style="width: 100%; min-width: 600px; height: auto;" />
+
+If we only paid attention to what that one image of a 2 wanted, the network would end up just trying to call everything a 2, which obviously isn’t what we want.
+
+So, to get the bigger picture, you actually repeat this whole backpropagation process for every training example, keeping track of how each one would like to adjust the weights and biases. After that, you take all those suggestions and average them out.
+
+<img src="/content/digit-recogniser/average-over-all.png" alt="average-over-all" style="width: 100%; min-width: 600px; height: auto;" />
+
+Every training example has its own idea about how the weights and biases should be changed, and how strongly. By averaging all these “wishes” together, you get the final update for each weight or bias in a single step of gradient descent.
+
+This set of averaged nudges for each weight and bias is, in a loose sense, the negative gradient of the cost function, or at least something that points in the same direction.
+
+<img src="/content/digit-recogniser/proportional-to-gradient.png" alt="proportional-to-gradient" style="width: 100%; min-width: 600px; height: auto;" />
+
+I’m saying “loosely” here because I haven’t gotten into the exact maths behind these nudges. But if you get the idea of how each change works, why some are bigger than others, and how they all get combined, then you’ve basically got the core idea of what backpropagation is doing.
+
+### Stochastic Gradient Descent
+
+When you try to add up the influence of every single training example for each step of gradient descent, it can take computers ages to get through it all. To make things faster, there’s a neat trick: rather than using the whole dataset for every step, you break your training data into smaller chunks called mini batches, maybe 100 examples in each.
+
+<img src="/content/digit-recogniser/mini-batches.png" alt="mini-batches" style="width: 100%; min-width: 600px; height: auto;" />
+
+Now, instead of calculating the gradient using all your data at once, you do it for just one mini batch at a time. Sure, this doesn’t give you the exact gradient for the whole cost function, since you’re only looking at a slice of the data, but it’s a pretty good estimate. Plus, each step is way quicker, if you have 100 mini batches, each step only takes about a hundredth of the time. After you’ve gone through all the mini batches, every training example has had its say in updating the network.
+
+This approach makes gradient descent look a bit less like someone carefully picking their way down a hill and more like someone stumbling down quickly, taking lots of fast, slightly wobbly steps. But that’s actually a good thing, because you get to the bottom much faster.
+
+<img src="/content/digit-recogniser/stochastic-comparison.png" alt="stochastic-comparison" style="width: 100%; min-width: 600px; height: auto;" />
+
+This whole method is called **Stochastic Gradient Descent**.
+
+### Conclusion
+
+So, at this point, every bit of code you’d write for backpropagation lines up with something we’ve talked about, at least in a general sense. But honestly, just understanding the maths isn’t always enough, sometimes the real challenge is figuring out how to actually put it all together in code without getting lost in the details.
+
+## Implementing the Model in Python
+
+Alright, with all that theory ammo loaded, it was time to fire it into some actual code. For this I found Michael Nielsen's book really helpful, his explanation and implementation is super clean and focuses on the essentials without any fancy bells and whistles. By the way, the full code is on my [Github](https://github.com/zdravkodanailov7/handwritten-digit-recogniser), give it a star if you want!
+
+### Coding the Neural Network Class
+
+At the core of the project is a `Network` class. When you create an instance of this class, it sets up all the weights and biases randomly, these are just numbers that the network will tweak as it learns, and they start out following a normal (Gaussian) distribution with a mean of 0 and a variance of 1. The class has a `feedforward` method, which is how the network makes predictions by passing input data through each layer, applying the weights, biases, and activation function along the way. For training, it uses Stochastic Gradient Descent (SGD), which (again) is a way of gradually improving the network by looking at small batches of data at a time. The real magic happens in the `backprop` method, which figures out how to adjust all those weights and biases by calculating the gradients, essentially, it tells the network how to get better at its predictions. Below is a simplified version of the class, just to give you a feel for how it’s structured. If you want to see the full code, again, check out the GitHub repo.
+
+``` python
+#### Libraries
+# Standard library
+import random
+import pickle  # Add this for saving/loading
+
+# Third-party libraries
+import numpy as np
+
+
+class Network(object):
+
+    def __init__(self, sizes):
+        """The list ``sizes`` contains the number of neurons in the
+        respective layers of the network.  For example, if the list
+        was [2, 3, 1] then it would be a three-layer network, with the
+        first layer containing 2 neurons, the second layer 3 neurons,
+        and the third layer 1 neuron.  The biases and weights for the
+        network are initialized randomly, using a Gaussian
+        distribution with mean 0, and variance 1.  Note that the first
+        layer is assumed to be an input layer, and by convention we
+        won't set any biases for those neurons, since biases are only
+        ever used in computing the outputs from later layers."""
+        pass
+
+    def feedforward(self, a):
+        """Return the output of the network if ``a`` is input."""
+        pass
+
+    def SGD(self, training_data, epochs, mini_batch_size, eta,
+            test_data=None):
+        """Train the neural network using mini-batch stochastic
+        gradient descent.  The ``training_data`` is a list of tuples
+        ``(x, y)`` representing the training inputs and the desired
+        outputs.  The other non-optional parameters are
+        self-explanatory.  If ``test_data`` is provided then the
+        network will be evaluated against the test data after each
+        epoch, and partial progress printed out.  This is useful for
+        tracking progress, but slows things down substantially."""
+        pass
+
+    def update_mini_batch(self, mini_batch, eta):
+        """Update the network's weights and biases by applying
+        gradient descent using backpropagation to a single mini batch.
+        The ``mini_batch`` is a list of tuples ``(x, y)``, and ``eta``
+        is the learning rate."""
+        pass
+
+    def backprop(self, x, y):
+        """Return a tuple ``(nabla_b, nabla_w)`` representing the
+        gradient for the cost function C_x.  ``nabla_b`` and
+        ``nabla_w`` are layer-by-layer lists of numpy arrays, similar
+        to ``self.biases`` and ``self.weights``."""
+        pass
+
+    def evaluate(self, test_data):
+        """Return the number of test inputs for which the neural
+        network outputs the correct result. Note that the neural
+        network's output is assumed to be the index of whichever
+        neuron in the final layer has the highest activation."""
+        pass
+
+    def cost_derivative(self, output_activations, y):
+        """Return the vector of partial derivatives \partial C_x /
+        \partial a for the output activations."""
+        pass
+        
+    def save(self, filename):
+        """Save weights and biases to a file."""
+        pass
+
+    @classmethod
+    def load(cls, filename):
+        """Load weights and biases from a file."""
+        pass
+
+
+#### Miscellaneous functions
+def sigmoid(z):
+    """The sigmoid function."""
+    pass
+
+
+def sigmoid_prime(z):
+    """Derivative of the sigmoid function."""
+    pass
+```
+
+Simple, right? It matches the matrix notation from earlier and the feedforward propagates activations layer by layer.
+
+### Training on MNIST Data
+
+Loaded MNIST via a helper script mnist_loader.py. Trained a [784, 30, 10] network, 30 epochs, 10 mini batches, learning rate of 3.0. Took a few minutes on my PC.
+
+``` python
+training_data, validation_data, test_data = mnist_loader.load_data_wrapper()
+net = Network([784, 30, 10])
+net.SGD(training_data, 30, 10, 3.0, test_data=test_data)
+```
+
+<img src="/content/digit-recogniser/training.png" alt="training" style="width: 100%; min-width: 600px; height: auto;" />
+
+It got ~95% accuracy, bish bash bosh, the network has learned!
+
+Also I saved it as a .pkl file for easy reload, net.save("trained_digit_net.pkl").
+
+### Testing and Saving the Model
+
+I then tested on random samples with a quick function and visualised with matplotlib to see true vs. predicted.
+
+``` python
+def test_individual_predictions(network, test_data, num_examples=5):
+    indices = np.random.choice(len(test_data), num_examples)
+    for i, idx in enumerate(indices):
+        x, y = test_data[idx]
+        prediction = np.argmax(network.feedforward(x))
+        print(f"True: {y}, Predicted: {prediction}")
+        plt.imshow(x.reshape(28, 28), cmap='gray')
+        plt.show()
+
+loaded_net = Network.load("trained_digit_net.pkl")
+test_individual_predictions(loaded_net, test_data, 3)
+```
+
+<img src="/content/digit-recogniser/testing.png" alt="testing" style="width: 100%; min-width: 600px; height: auto;" />
+
+### Exporting to JSON for the Web App
+
+Now since I will be building a JS frontend app and deploying to Vercel, I cannot use python and cannot use the .pkl file for reloading, so naturally I converted the pkl to JSON. This was easy to do since the weights and biases are essentially just lists.
+
+``` python
+with open('trained_digit_net.pkl', 'rb') as f:
+    data = pickle.load(f)
+
+json_data = {
+    "sizes": data["sizes"],
+    "weights": data["weights"],
+    "biases": data["biases"]
+}
+
+with open('trained_digit_net.json', 'w') as f:
+    json.dump(json_data, f)
+```
+
+## Building the Next.js Web App
+
+Ok, with the model trained and exported to JSON, it's time to build the frontend bish bash bosh, a simple Next.js app where you draw on a grid and get predictions. I kept it minimal: TS, Turbopack for fast development and Shadcn for UI!
+
+### Porting the Network to TypeScript
+
+Since I couldn’t use the Python .pkl file in JavaScript, and Vercel doesn’t let you run Python code, I had to port the feedforward part of the network to TypeScript for browser predictions. I didn’t need backpropagation here, just the forward pass. I loaded the model weights and biases from the JSON file (from earlier) in the public folder, and handled all the matrix operations with plain loops since there’s no NumPy in JS.
+
+``` ts
+interface SerializedNetwork {
+    sizes: number[];
+    weights: number[][][];
+    biases: number[][][];
+}
+
+export class Network {
+    sizes: number[];
+    weights: number[][][];
+    biases: number[][][];
+  
+    constructor(jsonData: SerializedNetwork) {
+      this.sizes = jsonData.sizes;
+      this.weights = jsonData.weights;
+      this.biases = jsonData.biases;
+    }
+  
+    sigmoid(z: number): number {
+      return 1 / (1 + Math.exp(-z));
+    }
+  
+    feedforward(input: number[]): number[] {
+      let activation = input.slice();
+      for (let i = 0; i < this.weights.length; i++) {
+        const layerWeights = this.weights[i];
+        const layerBiases = this.biases[i];
+        const newActivation: number[] = [];
+        for (let j = 0; j < layerWeights.length; j++) {
+          let z = layerBiases[j][0];
+          for (let k = 0; k < layerWeights[j].length; k++) {
+            z += layerWeights[j][k] * activation[k];
+          }
+          newActivation.push(this.sigmoid(z));
+        }
+        activation = newActivation;
+      }
+      return activation;
+    }
+  }
+  
+  export async function loadNetwork(): Promise<Network> {
+    const res = await fetch('/trained_digit_net.json');
+    const data = await res.json();
+    return new Network(data);
+  }
+```
+
+### Interactive Grid Drawing Interface
+
+I set up a 28 by 28 grid of divs with a black background, and you can draw on it in white. For smooth drawing, I used pointer and touch event handlers along with a brush effect. One tricky part was handling the difference between taps and strokes on mobile devices, so I made sure to add touch listeners with passive set to false. What that means is, by default, browsers try to optimise touch events for scrolling and other gestures, which can make drawing feel laggy or unresponsive. By setting passive to false, I can call preventDefault inside my event handler, which stops the browser from interfering and lets the drawing feel much smoother and more natural, especially on mobile devices.
+
+``` ts
+const paintStroke = (fromIndex: number | null, toIndex: number) => {
+    setPixels((prev) => {
+      const next = prev.slice();
+      const toX = toIndex % 28;
+      const toY = Math.floor(toIndex / 28);
+      if (fromIndex === null) {
+        applyBrushAt(next, toX, toY);
+        return next;
+      }
+      const fromX = fromIndex % 28;
+      const fromY = Math.floor(fromIndex / 28);
+      const dx = toX - fromX;
+      const dy = toY - fromY;
+      const dist = Math.max(Math.abs(dx), Math.abs(dy));
+      const samples = Math.max(1, Math.ceil(dist / STEP_SIZE));
+      for (let i = 0; i <= samples; i++) {
+        const t = samples === 0 ? 0 : i / samples;
+        const x = fromX + dx * t;
+        const y = fromY + dy * t;
+        applyBrushAt(next, x, y);
+      }
+      return next;
+    });
+  };
+
+  // Keep a stable reference for native listeners
+  useEffect(() => {
+    paintStrokeRef.current = paintStroke;
+  }, [paintStroke]);
+```
+
+### Preprocessing Inputs for Better Accuracy
+
+To help the model make better predictions, I preprocess the input in a few ways. First, I normalise the pixel values, which just means making sure they’re all between 0 and 1, so the network isn’t thrown off by different brightness levels. Then, I centre the digit in the grid, so it doesn’t matter if you draw your number off to one side or the other (which throws the model off). I also scale the digit a bit, which helps because people draw numbers in all sorts of sizes, and resizing them to fit a similar area makes things more consistent for the model.
+
+``` ts
+const preprocess = (src: number[]): number[] => {
+    const threshold = 0.1;
+    let minX = 28, minY = 28, maxX = -1, maxY = -1;
+    for (let y = 0; y < 28; y++) {
+      for (let x = 0; x < 28; x++) {
+        const v = src[y * 28 + x];
+        if (v > threshold) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < 0) {
+      return new Array(28 * 28).fill(0);
+    }
+
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+    const scale = 0.8; // slight zoom out
+    const newWidth = Math.max(1, Math.floor(width * scale));
+    const newHeight = Math.max(1, Math.floor(height * scale));
+    const centreX = Math.floor((28 - newWidth) / 2);
+    const centreY = Math.floor((28 - newHeight) / 2);
+
+    const dst = new Array(28 * 28).fill(0);
+    for (let ny = 0; ny < newHeight; ny++) {
+      for (let nx = 0; nx < newWidth; nx++) {
+        const ox = Math.min(27, Math.max(0, minX + Math.floor(nx / scale)));
+        const oy = Math.min(27, Math.max(0, minY + Math.floor(ny / scale)));
+        const oldIdx = oy * 28 + ox;
+        const newX = centreX + nx;
+        const newY = centreY + ny;
+        const newIdx = newY * 28 + newX;
+        dst[newIdx] = Math.max(dst[newIdx], src[oldIdx]);
+      }
+    }
+    return dst;
+  };
+```
+
+### Deployment on Vercel
+
+Once I finished the project, I pushed the code to GitHub, and Vercel took care of the deployment automatically, which was super convenient. I also set up some basic analytics to keep track of how people are using the app, and that was both free and really easy to do. If you want to try it out yourself, you can check out the live version here: https://handwritten-digit-recogniser.vercel.app/. When you’re testing, try drawing your digit as large as possible so it fills up most of the grid, this helps the model make the most accurate prediction.
+
+## Challenges and Learnings
+
+The main challenge I ran into was with mobile compatibility. On desktop, everything worked perfectly, and even when I used the Chrome dev tools to emulate a mobile device, drawing strokes was fine. But as soon as I pushed the app to Vercel and tried it on my actual phone, I couldn’t draw a proper stroke at all—it would just put a dot wherever I tried to draw a stroke, instead of letting me draw a line. Since I needed this to work for a live demo at work, I had to dig in and figure out what was going on. After a bit of tinkering (which I explained [above](#interactive-grid-drawing-interface)), I managed to fix it, but it definitely took some trial and error.
+
+Another funny thing is that I kept pushing to Vercel every time I got stuck on the bug, totally forgetting that I could just access the app from my phone using my computer’s IP address while it was running locally on my network. Would’ve saved me a bit of time, but hey, you live and learn.
+
+On the learning side, diving into the theory behind all this really helped demystify machine learning for me. It’s not magic, it’s just a lot of optimisation and calculus. I also didn’t realise how important preprocessing the user input was until I ran into issues, at first, the model wasn’t recognising any of my numbers, which was kind of hilarious. But that kind of makes sense since my network is super basic. I was also originally using a canvas to draw instead of the current div setup, so that made a difference too.
+
+## The End
+
+So, bish bash bosh, I went from scribbled notes to a working app, and it was a pretty cool journey. If you have any feedback, feel free to reach out to me wherever you can find me (links below). And if you end up checking out the source code, maybe give it a star if you feel like it.
+
+Thanks for reading!
