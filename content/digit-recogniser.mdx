@@ -50,13 +50,13 @@ This is a deep-dive blog post on my journey building a handwritten digit recogni
 
 ## Introduction and Motivation
 
-Ok, so I want to build a web app where a user draws a number 0-9 and the computer does bish bash bosh and predicts what number you have drawn. How do you do this? I dont know, so first I gathered knowledge. As mostly a visual learner I found [3Blue1Brown's videos](https://www.youtube.com/watch?v=aircAruvnKk&list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi) on the topic very useful on getting an intuintive understanding of the concepts, I made some notes on these videos so I wasn't just passively learning. To then get deeper into it I read Michael Nielsen's [Neural Networks and Deep Learning](http://neuralnetworksanddeeplearning.com/) book, it really helped having the intuitive knowledge from the videos beforehand.
+Ok, so I want to build a web app where a user draws a number 0-9 and the computer does bish bash bosh and predicts what number you have drawn. How do you do this? I don't know, so first I gathered knowledge. As mostly a visual learner, I found [3Blue1Brown's videos](https://www.youtube.com/watch?v=aircAruvnKk&list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi) on the topic very useful on getting an intuitive understanding of the concepts, I made some notes on these videos so I wasn't just passively learning. To then get deeper into it, I read Michael Nielsen's [Neural Networks and Deep Learning](http://neuralnetworksanddeeplearning.com/) book, it really helped having the intuitive knowledge from the videos beforehand.
 
 My motivation? Pure curiosity about how machine learning really works, plus a cool portfolio project. Knowledge gained is the ammo, motivation is my gun, now let's shoot it straight into the problem at hand.
 
 ## The Problem
 
-How is it that our brain can see a number 3 and know it's a number 3? That's crazy because you can look one 3 written one way and another 3 written a completely different way, could even be doctor's handwriting and still your brain would know what number it is!
+How is it that our brain can see a number 3 and know it's a number 3? That's crazy because you can look at one 3 written one way and another 3 written a completely different way, could even be doctor's handwriting and still your brain would know what number it is!
 
 <img src="/content/digit-recogniser/different-threes.png" alt="Three Threes" style="width: 100%; min-width: 600px; height: auto;" />
 
@@ -64,13 +64,13 @@ Essentially, my task is to write some code that would mimic what the brain is do
 
 ## Learning the Theory – Neural Network Basics
 
-Alright, so we will use a neural network to solve this problem, but first of all, what is a neural network? Well, there are many variants, for example convolutional neural networks (CNN), recurrent neural networks (RNN), transformers, and many more. But lets start by learning about the most basic one of them all, the plain vanilla form of a neural network.
+Alright, so we will use a neural network to solve this problem, but first of all, what is a neural network? Well, there are many variants, for example convolutional neural networks (CNN), recurrent neural networks (RNN), transformers, and many more. But let's start by learning about the most basic one of them all, the plain vanilla form of a neural network.
 
 <img src="/content/digit-recogniser/plain-vanilla-nn.png" alt="Vanilla NN" style="width: 100%; min-width: 600px; height: auto;" />
 
 ### Neurons
 
-To break it down super simply a neuron is a thing that holds a number, thats it, specifically a number between 0 and 1.
+To break it down super simply, a neuron is a thing that holds a number, that's it, specifically a number between 0 and 1.
 
 For example, our images will be 28x28 pixels meaning we will have 784 neurons, each of which holds a number. This number corresponds to its greyscale value of the pixel, 0 for black and up to 1 for white ones.
 
@@ -82,9 +82,9 @@ All of our images will be 28x28 pixels, in total 784 pixels, each with a brightn
 
 <img src="/content/digit-recogniser/highlight-first-layer.png" alt="The First Layer" style="width: 100%; min-width: 600px; height: auto;" />
 
-That's our first layer, called the input layer done. Now when we want to pass an image into the network, we'll set each input neuron's activation to the brightness of the corresponding pixel.
+That's our first layer, called the input layer, done. Now when we want to pass an image into the network, we'll set each input neuron's activation to the brightness of the corresponding pixel.
 
-Now lets jump over to the last layer of our network, it will have 10 neurons, each one representing one of the possible digits. The activation in tehse neurons, again between 0.0 and 1.0, will represent how much the system thinks an image corresponds to a given digit.
+Now let's jump over to the last layer of our network, it will have 10 neurons, each one representing one of the possible digits. The activation in these neurons, again between 0.0 and 1.0, will represent how much the system thinks an image corresponds to a given digit.
 
 <img src="/content/digit-recogniser/output-layer.png" alt="Output Layer" style="width: 100%; min-width: 600px; height: auto;" />
 
@@ -102,7 +102,7 @@ However, not all of these connections are equal, some are stronger than others a
 
 ---
 
-Before we jump into the maths behind them lets think a little bit more broadly about how we might expect a layered structure like this to behave.
+Before we jump into the maths behind them let's think a little bit more broadly about how we might expect a layered structure like this to behave.
 
 When you or I recognise digits we piece together various different components like loops and lines, so each digit can be broken down into smaller recognisable structures.
 
@@ -112,7 +112,7 @@ In an ideal scenario we might hope that each neuron in the second to last layer 
 
 <img src="/content/digit-recogniser/upper-loop-neuron.png" alt="Upper Loop Neuron" style="width: 100%; min-width: 600px; height: auto;" />
 
-And not just that *exact* loop of pixels. The hope would be that any generally loopy pattern towards the top of image sets off this neuron. That way, going from the third layer to the lasy one would just require learning which combinations of subcomponents correspond to which digits.
+And not just that *exact* loop of pixels. The hope would be that any generally loopy pattern towards the top of image sets off this neuron. That way, going from the third layer to the last one would just require learning which combinations of subcomponents correspond to which digits.
 
 But how do you even recognise these subcomponents? Well recognising a loop can also be broken down into subproblems. One reasonable way to do that would be to first recognise the various edges that make it up.
 
@@ -144,7 +144,7 @@ What’s really nice about having layers in a neural network is that it helps yo
 
 Alright, so now that we have this general idea in mind, how would you actually go about building it? What we really want is some way to take the raw pixels and combine them into edges, then combine those edges into bigger patterns, and finally turn those patterns into digits. It would be really neat if each of these steps could use the same kind of maths, making the whole process feel unified and simple.
 
-Lets zoom in on one very specific example, say that the hope is for this one particular neuron in the second layer to pick up on whether or not the image has an edge in this spot here:
+let's zoom in on one very specific example, say that the hope is for this one particular neuron in the second layer to pick up on whether or not the image has an edge in this spot here:
 
 <img src="/content/digit-recogniser/desired-edge.png" alt="Desired Edge" style="width: 100%; min-width: 600px; height: auto;" />
 
@@ -766,7 +766,7 @@ export class Network {
 
 ### Interactive Grid Drawing Interface
 
-I set up a 28 by 28 grid of divs with a black background, and you can draw on it in white. For smooth drawing, I used pointer and touch event handlers along with a brush effect. One tricky part was handling the difference between taps and strokes on mobile devices, so I made sure to add touch listeners with passive set to false. What that means is, by default, browsers try to optimise touch events for scrolling and other gestures, which can make drawing feel laggy or unresponsive. By setting passive to false, I can call preventDefault inside my event handler, which stops the browser from interfering and lets the drawing feel much smoother and more natural, especially on mobile devices.
+I set up a 28 by 28 grid of divs with a black background, and you can draw on it in white. For smooth drawing, I used pointer and touch event handlers along with a brush effect. One tricky part was handling the difference between taps and strokes on mobile devices, so I made sure to add touch listeners with passive set to false. What that means is, by default, browsers try to optimise touch events for scrolling and other gestures, which can make drawing feel laggy or unresponsive. By setting passive to false, I can call preventDefault inside my event handler, which stops the browser from interfering and let's the drawing feel much smoother and more natural, especially on mobile devices.
 
 ``` ts
 const paintStroke = (fromIndex: number | null, toIndex: number) => {
