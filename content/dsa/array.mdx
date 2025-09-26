@@ -1,0 +1,134 @@
+---
+title: "Array"
+publishedAt: "2025-09-22"
+---
+
+An array is a contiguous block in RAM. For example `[1, 3, 5]` (integers), each takes 4 bytes (32 bits), so addresses might be `$0`, `$4`, `$8`. For chars like `['A', 'B', 'C']`, its 1 byte each: `$0`, `$1`, `$2`. The key is everything is next to each other, and we access via indexes starting at 0.
+
+Note that integers are often 32-bit: 1 is 31 zeros and a 1 at the end in binary. Arrays are simple, their memory layout matches how they are written in code.
+
+### Static Arrays
+
+Static arrays have a fixed size, they cannot grow after creation. That's the big limitation with them when compared to dynamic arrays.
+
+#### Reading
+
+Reading is fast, O(1) because RAM is random access (can jump to any address instantly). Index maps directly to the memory address.
+
+Looping through is O(n), obviously, since you hit each element.
+
+::: code-group labels=[Python, TypeScript]
+```python
+# Python lists are actually dynamic by default,
+# but here, we're pretending to use them like a static array
+my_array = [0] * 3
+my_array[0] = 1
+my_array[1] = 3
+my_array[2] = 5
+
+# Read index 0
+print(my_array[0])  # 1
+
+# Loop
+for value in my_array:
+    print(value)  # 1 3 5
+```
+
+```typescript
+// Same thing goes for typescript as with python
+const myArray: number[] = [5, 6, 0];
+for (let i = myArray.length - 1; i > 0; i--) {
+    myArray[i] = myArray[i - 1];
+}
+myArray[0] = 4;
+console.log(myArray); // [4, 5, 6]
+```
+:::
+
+#### Trade offs
+
+Good for fast access if size known. Bad for frequent inserts/removes in middle or growing in size. In Python/TS, arrays are dynamic by default, so I rarely hit this, but good to know for lower-level stuff.
+
+### My Static Sim
+
+Wrote a simple class to mimic it, with add (end) and insert (anywhere). Enforce size, handles shifts.
+
+::: code-group labels=[Python, TypeScript]
+```python
+class StaticArray:
+    def __init__(self, size):
+        self.size = size
+        self.data = [None] * size
+        self.count = 0
+    
+    def add(self, value):
+        if self.count >= self.size:
+            raise ValueError("Full")
+        self.data[self.count] = value
+        self.count += 1
+    
+    def insert(self, index, value):
+        if self.count >= self.size:
+            raise ValueError("Full")
+        if index < 0 or index > self.count:
+            raise IndexError("Bad index")
+        for i in range(self.count, index, -1):
+            self.data[i] = self.data[i - 1]
+        self.data[index] = value
+        self.count += 1
+    
+    def __str__(self):
+        return str(self.data[:self.count])
+
+arr = StaticArray(3)
+arr.add(5)
+arr.add(6)
+arr.insert(0, 4)
+print(arr)  # [4, 5, 6]
+```
+
+```typescript
+class StaticArray {
+    private size: number;
+    private data: (number | null)[];
+    private count: number = 0;
+
+    constructor(size: number) {
+        this.size = size;
+        this.data = new Array(size).fill(null);
+    }
+
+    add(value: number): void {
+        if (this.count >= this.size) {
+            throw new Error("Full");
+        }
+        this.data[this.count] = value;
+        this.count++;
+    }
+
+    insert(index: number, value: number): void {
+        if (this.count >= this.size) {
+            throw new Error("Full");
+        }
+        if (index < 0 || index > this.count) {
+            throw new Error("Bad index");
+        }
+        for (let i = this.count; i > index; i--) {
+            this.data[i] = this.data[i - 1];
+        }
+        this.data[index] = value;
+        this.count++;
+    }
+
+    toString(): string {
+        return this.data.slice(0, this.count).toString();
+    }
+}
+
+const arr = new StaticArray(3);
+arr.add(5);
+arr.add(6);
+arr.insert(0, 4);
+console.log(arr.toString()); // 4,5,6
+```
+:::

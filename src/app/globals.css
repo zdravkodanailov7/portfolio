@@ -143,7 +143,16 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
   width: 3rem;
 }
 
-/* 
+.prose code::before, .prose code::after { content: none; }
+
+.prose code { font-size: 1rem; }
+
+code[data-language] {
+  font-size: 0.85rem;
+}
+
+
+/*
 .prose pre {
   width: 1000px;
   max-width: 95vw;
@@ -159,4 +168,5 @@ code[data-line-numbers-max-digits="3"] > [data-line]::before {
     left: 50%;
     transform: translateX(-50%);
   }
-} */
+}
+*/
