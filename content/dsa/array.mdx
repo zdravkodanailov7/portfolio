@@ -5,11 +5,19 @@ publishedAt: "2025-09-22"
 
 An array is a contiguous block in RAM. For example `[1, 3, 5]` (integers), each takes 4 bytes (32 bits), so addresses might be `$0`, `$4`, `$8`. For chars like `['A', 'B', 'C']`, its 1 byte each: `$0`, `$1`, `$2`. The key is everything is next to each other, and we access via indexes starting at 0.
 
-Note that integers are often 32-bit: 1 is 31 zeros and a 1 at the end in binary. Arrays are simple, their memory layout matches how they are written in code.
+Note that integers are often 32-bit: 1 is 31 zeros and a 1 at the end in binary. Arrays are simple, their memory layout matches how I think of them in code.
+
+### Types of Arrays
+
+There are basically two types of arrays:
+
+- **Static Array**: In this type of array, memory is allocated at compile time with a fixed size. We cannot alter or update the size of the array once its created, that's the big limitation when compared to dynamic ones.
+
+- **Dynamic Array**: In this type of array, memory is allocated at run time without a fixed size. If a user wants to declare a random size for an array we won't use a static one, instead, a dynamic array comes in handy. It's used to specify (and change) the size during the run time of any program.
+
+*Note: Python and JS/TS default to dynamic arrays, unlike C/C++/Java.*
 
 ### Static Arrays
-
-Static arrays have a fixed size, they cannot grow after creation. That's the big limitation with them when compared to dynamic arrays.
 
 #### Reading
 
@@ -19,8 +27,6 @@ Looping through is O(n), obviously, since you hit each element.
 
 ::: code-group labels=[Python, TypeScript]
 ```python
-# Python lists are actually dynamic by default,
-# but here, we're pretending to use them like a static array
 my_array = [0] * 3
 my_array[0] = 1
 my_array[1] = 3
@@ -35,13 +41,52 @@ for value in my_array:
 ```
 
 ```typescript
-// Same thing goes for typescript as with python
+const myArray: number[] = new Array(3).fill(0);
+myArray[0] = 1;
+myArray[1] = 3;
+myArray[2] = 5;
+
+console.log(myArray[0]); // 1
+
+for (const value of myArray) {
+    console.log(value) // 1 3 5
+}
+
+```
+:::
+
+#### Writing
+
+If you want to overwrite an existing spot, just place the new value at the index, O(1).
+
+Adding to the end (if there's space)? Also O(1): Track a `count` var, write there, increment.
+
+Removing? Overwrite with None/null and decrement count, still O(1).
+
+#### Insert/Remove in the Middle
+
+This is where it hurts: O(n) worst case (on average) because you have to shift elements to keep contiguity.
+- **Insert**: Slide everything right from a spot, then drop in the new value.
+- **Remove**: Slide left to fill the gap.
+
+**Example**: Inserting at the start (worst shift).
+
+::: code-group labels=[Python, Typescript]
+```python
+my_array = [5, 6, 0]
+for i in range(len(my_array) - 1, 0, -1): # Shift right
+    my_array[i] = my_array[i - 1];
+my_array[0] = 4
+print(my_array) # [4, 5, 6]
+```
+
+```typescript
 const myArray: number[] = [5, 6, 0];
-for (let i = myArray.length - 1; i > 0; i--) {
+for (let i = myArray.length - 1; i > 0; i--) { // Shift right
     myArray[i] = myArray[i - 1];
 }
 myArray[0] = 4;
-console.log(myArray); // [4, 5, 6]
+console.log(myArray) // [4, 5, 6]
 ```
 :::
 
@@ -49,86 +94,6 @@ console.log(myArray); // [4, 5, 6]
 
 Good for fast access if size known. Bad for frequent inserts/removes in middle or growing in size. In Python/TS, arrays are dynamic by default, so I rarely hit this, but good to know for lower-level stuff.
 
-### My Static Sim
+### Implementation
 
-Wrote a simple class to mimic it, with add (end) and insert (anywhere). Enforce size, handles shifts.
-
-::: code-group labels=[Python, TypeScript]
-```python
-class StaticArray:
-    def __init__(self, size):
-        self.size = size
-        self.data = [None] * size
-        self.count = 0
-    
-    def add(self, value):
-        if self.count >= self.size:
-            raise ValueError("Full")
-        self.data[self.count] = value
-        self.count += 1
-    
-    def insert(self, index, value):
-        if self.count >= self.size:
-            raise ValueError("Full")
-        if index < 0 or index > self.count:
-            raise IndexError("Bad index")
-        for i in range(self.count, index, -1):
-            self.data[i] = self.data[i - 1]
-        self.data[index] = value
-        self.count += 1
-    
-    def __str__(self):
-        return str(self.data[:self.count])
-
-arr = StaticArray(3)
-arr.add(5)
-arr.add(6)
-arr.insert(0, 4)
-print(arr)  # [4, 5, 6]
-```
-
-```typescript
-class StaticArray {
-    private size: number;
-    private data: (number | null)[];
-    private count: number = 0;
-
-    constructor(size: number) {
-        this.size = size;
-        this.data = new Array(size).fill(null);
-    }
-
-    add(value: number): void {
-        if (this.count >= this.size) {
-            throw new Error("Full");
-        }
-        this.data[this.count] = value;
-        this.count++;
-    }
-
-    insert(index: number, value: number): void {
-        if (this.count >= this.size) {
-            throw new Error("Full");
-        }
-        if (index < 0 || index > this.count) {
-            throw new Error("Bad index");
-        }
-        for (let i = this.count; i > index; i--) {
-            this.data[i] = this.data[i - 1];
-        }
-        this.data[index] = value;
-        this.count++;
-    }
-
-    toString(): string {
-        return this.data.slice(0, this.count).toString();
-    }
-}
-
-const arr = new StaticArray(3);
-arr.add(5);
-arr.add(6);
-arr.insert(0, 4);
-console.log(arr.toString()); // 4,5,6
-```
-:::
+For the full implementation including pytest tests, check out my [GitHub repo](https://github.com/zdravkodanailov7/dsa/blob/main/python/static_array.py). All tests pass, give it a clone and pytest static_array.py!
