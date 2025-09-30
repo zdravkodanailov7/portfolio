@@ -1,6 +1,6 @@
 ---
 title: "Array"
-publishedAt: "2025-09-22"
+publishedAt: "2025-09-30"
 ---
 
 An array is a contiguous block in RAM. For example `[1, 3, 5]` (integers), each takes 4 bytes (32 bits), so addresses might be `$0`, `$4`, `$8`. For chars like `['A', 'B', 'C']`, its 1 byte each: `$0`, `$1`, `$2`. The key is everything is next to each other, and we access via indexes starting at 0.
@@ -96,4 +96,147 @@ Good for fast access if size known. Bad for frequent inserts/removes in middle o
 
 ### Implementation
 
-For the full implementation including pytest tests, check out my [GitHub repo](https://github.com/zdravkodanailov7/dsa/blob/main/python/static_array.py). All tests pass, give it a clone and pytest static_array.py!
+Full code with tests in the [git repo](https://github.com/zdravkodanailov7/dsa).
+
+::: code-group labels=[Python, Typescript]
+```python
+class StaticArray:
+    def __init__(self, capacity):
+        self._array = [0] * capacity
+        self._length = 0
+        self._capacity = capacity
+    
+    def insert_end(self, n):
+        if self._length < self._capacity:
+            self._array[self._length] = n
+            self._length += 1
+            return True
+        return False # Full, no insertion
+
+    def remove_end(self):
+        if self._length > 0:
+            self._array[self._length - 1] = 0
+            self._length -= 1
+            return True
+        return False # Empty, no removal
+
+    def insert_middle(self, i, n):
+        if i < 0 or i > self._length or self._length >= self._capacity:
+            return False # Invalid index or full
+        # Shift starting from the end to i
+        for index in range(self._length - 1, i - 1, -1):
+            self._array[index + 1] = self._array[index]
+        # Insert at i
+        self._array[i] = n
+        self._length += 1
+        return True
+
+    def remove_middle(self, i):
+        if i < 0 or i >= self._length:
+            return False # Invalid index
+        # Shift starting from i + 1 to the end
+        for index in range(i + 1, self._length):
+            self._array[index - 1] = self._array[index]
+        # No need to "remove" self._array[i], since we shifted
+        self._array[self._length - 1] = 0 # Optional: clear the last spot
+        self._length -= 1
+        return True
+
+    def print_array(self):
+        for i in range(self._capacity):
+            print(self._array[i])
+    
+    def is_full(self):
+        return self._length == self._capacity
+
+    def is_empty(self):
+        return self._length == 0
+
+    def get_length(self):
+        return self._length
+
+    def get_capacity(self):
+        return self._capacity
+```
+```typescript
+export class StaticArray {
+    private _array: number[];
+    private _length: number;
+    private _capacity: number;
+
+    constructor(capacity: number) {
+        this._array = new Array(capacity).fill(0);
+        this._length = 0;
+        this._capacity = capacity;
+    }
+
+    insertEnd(n: number): boolean {
+        if (this._length < this._capacity) {
+            this._array[this._length] = n;
+            this._length += 1;
+            return true;
+        }
+        return false; // Full, no insertion
+    }
+
+    removeEnd(): boolean {
+        if (this._length > 0) {
+            this._array[this._length - 1] = 0;
+            this._length -= 1;
+            return true;
+        }
+        return false; // Empty, no removal
+    }
+
+    insertMiddle(i: number, n: number): boolean {
+        if (i < 0 || i > this._length || this._length >= this._capacity) {
+            return false; // Invalid index or full
+        }
+        // Shift starting from the end to i
+        for (let index = this._length - 1; index >= i; index--) {
+            this._array[index + 1] = this._array[index];
+        }
+        // Insert at i
+        this._array[i] = n;
+        this._length += 1;
+        return true;
+    }
+
+    removeMiddle(i: number): boolean {
+        if (i < 0 || i >= this._length) {
+            return false; // Invalid index
+        }
+        // Shift starting from i + 1 to the end
+        for (let index = i + 1; index < this._length; index++) {
+            this._array[index - 1] = this._array[index];
+        }
+        // No need to "remove" this._array[i], since we shifted
+        this._array[this._length - 1] = 0; // Optional: clear the last spot
+        this._length -= 1;
+        return true;
+    }
+
+    printArray(): void {
+        for (let i = 0; i < this._capacity; i++) {
+            console.log(this._array[i]);
+        }
+    }
+
+    isFull(): boolean {
+        return this._length === this._capacity;
+    }
+
+    isEmpty(): boolean {
+        return this._length === 0;
+    }
+
+    getLength(): number {
+        return this._length;
+    }
+
+    getCapacity(): number {
+        return this._capacity;
+    }
+}
+```
+:::
