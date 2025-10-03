@@ -311,7 +311,55 @@ Full code with tests in the [git repo](https://github.com/zdravkodanailov7/dsa).
 
 ::: code-group labels=[Python, Typescript]
 ```python
-# Coming soon!
+# Pythonic arrays are dynamic by default, this is just an example of resizing.
+
+class DynamicArray:
+    def __init__(self):
+        self._array = [0] * 2 #Start small, capacity of 2.
+        self._length = 0
+        self._capacity = 2
+    
+    def resize(self):
+        # Create new array of double capacity
+        self._capacity = 2 * self._capacity
+        new_array = [0] * self._capacity
+
+        #Copy elements to new_array
+        for i in range(self._length):
+            new_array[i] = self._array[i]
+        self._array = new_array
+    
+    # Insert n in the last position of the array
+    def pushback(self, n):
+        if self._length == self._capacity:
+            self.resize()
+
+        # Insert at next empty position
+        self._array[self._length] = n
+        self._length += 1
+
+    # Remove the last element in the array
+    def popback(self):
+        if self._length > 0:
+            self._length -= 1
+
+    # Get value at i-th index
+    def get(self, i):
+        if i < self._length:
+            return self._array[i]
+        # Would throw an out of bounds exception here
+
+    # Insert at the i-th index
+    def insert(self, i, n):
+        if i < self._length:
+            self._array[i] = n
+            return
+        # Throw out of bounds exception here too
+
+    def print(self):
+        for i in range(self._length):
+            print(self._array[i])
+        print()
 ```
 
 ```typescript
