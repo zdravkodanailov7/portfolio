@@ -307,21 +307,19 @@ console.log(myArray);  // [1, 2, 3, 5]
 
 #### Implementation
 
-Full code with tests in the [git repo](https://github.com/zdravkodanailov7/dsa). <- Coming Soon
+Full code with tests in the [git repo](https://github.com/zdravkodanailov7/dsa).
 
 ::: code-group labels=[Python, Typescript]
 ```python
-# Pythonic arrays are dynamic by default, this is just an example of resizing.
-
 class DynamicArray:
     def __init__(self):
-        self._array = [0] * 2 #Start small, capacity of 2.
+        self._array = [0] * 1 # Start small, capacity of 2.
         self._length = 0
-        self._capacity = 2
+        self._capacity = 1
     
     def resize(self):
         # Create new array of double capacity
-        self._capacity = 2 * self._capacity
+        self._capacity *= 2
         new_array = [0] * self._capacity
 
         #Copy elements to new_array
@@ -333,7 +331,6 @@ class DynamicArray:
     def pushback(self, n):
         if self._length == self._capacity:
             self.resize()
-
         # Insert at next empty position
         self._array[self._length] = n
         self._length += 1
@@ -347,15 +344,20 @@ class DynamicArray:
     def get(self, i):
         if i < self._length:
             return self._array[i]
-        # Would throw an out of bounds exception here
+        raise IndexError("Index out of bounds")
 
     # Insert at the i-th index
     def insert(self, i, n):
-        if i < self._length:
-            self._array[i] = n
-            return
-        # Throw out of bounds exception here too
-
+        if i < 0 or i > self._length:
+            raise IndexError("Index out of bounds")
+        if self._length == self._capacity:
+            self.resize()
+        # Shift right from i to end
+        for j in range(self._length, i, -1):
+            self._array[j] = self._array[j - 1]
+        self._array[i] = n
+        self._length += 1
+        
     def print(self):
         for i in range(self._length):
             print(self._array[i])
@@ -363,6 +365,71 @@ class DynamicArray:
 ```
 
 ```typescript
-// Coming soon!
+export class DynamicArray {
+    private _array: number[];
+    private _length: number = 0;
+    private _capacity: number = 1;
+
+    constructor() {
+        this._array = new Array(1).fill(0); // Start small explicit zeros
+    }
+
+    private resize(): void {
+        this._capacity *= 2;
+        const new_array: number[] = new Array(this._capacity).fill(0);
+        for (let i = 0; i < this._length; i++) {
+            new_array[i] = this._array[i];
+        }
+        this._array = new_array;
+    }
+
+    pushback(n: number): void {
+        if (this._length === this._capacity) {
+            this.resize();
+        }
+        this._array[this._length] = n;
+        this._length++;
+    }
+
+    popback(): void {
+        if (this._length > 0) {
+            this._length--;
+        }
+    }
+
+    get(i: number): number {
+        if (i < 0 || i >= this._length) {
+            throw new RangeError("Index out of bounds");
+        }
+        return this._array[i];
+    }
+
+    insert(i: number, n: number): void {
+        if (i < 0 || i > this._length) {
+            throw new RangeError("Index out of bounds");
+        }
+        if (this._length === this._capacity) {
+            this.resize();
+        }
+        for (let j = this._length; j > i; j--) {
+            this._array[j] = this._array[j - 1];
+        }
+        this._array[i] = n;
+        this._length++;
+    }
+
+    print(): void {
+        const output = this._array.slice(0, this._length).join(" ");
+        console.log(output || "");
+    }
+
+    getLength(): number {
+        return this._length;
+    }
+
+    getCapacity(): number {
+        return this._capacity;
+    }
+}
 ```
 :::
