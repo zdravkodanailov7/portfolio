@@ -32,11 +32,15 @@ export default async function DsaPage() {
         .map((post, id) => (
           <BlurFade delay={BLUR_FADE_DELAY * 2 + id * 0.05} key={post.slug}>
             <Link
-              className="flex flex-col space-y-1 mb-4"
+              className="flex flex-col space-y-1 mb-4 group"
               href={`/dsa/${post.slug}`}
             >
               <div className="w-full flex flex-col">
-                <p className="tracking-tight">{post.metadata.title}</p>
+                <p
+                  className="tracking-tight text-foreground transition-colors duration-200 group-hover:text-primary/60 dark:group-hover:text-primary/60"
+                >
+                  {post.metadata.title}
+                </p>
                 <p className="h-6 text-xs text-muted-foreground">
                   {formatDate(post.metadata.publishedAt)}
                 </p>
