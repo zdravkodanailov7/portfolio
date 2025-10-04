@@ -2,3 +2,91 @@
 title: "Stack"
 publishedAt: "2025-10-04"
 ---
+
+Picture this data structure as a stack of plates on a kitchen counter: I can place a plate on the top, I can grab the top plate back, and I can peek to see which plate is currently on top. Everything happens at one end, which keeps the rules simple and the performance fast.
+
+### Core Operations
+
+Stacks typically expose just three methods:
+
+- **push**: add a value to the top of the stack
+- **pop**: remove and return the value on top
+- **peek**: read the top value without removing it
+
+Because every operation touches only the top element, each one is **O(1)**.
+
+### Implementing with Dynamic Arrays
+
+We don't need a bespoke data structure. A dynamic array is perfect for this job. Remember, dynamic arrays let us append and remove from the end in constant time, so they map neatly to push and pop. Peek is just reading the last element, which is also constant time. In most languages the built-in array or list type behaves like a dynamic array, so we can wrap it with stack semantics in just a few lines.
+
+### Why It Works
+
+Every stack follows the Last-In-First-Out (LIFO) rule: whatever we pushed last is the first thing that pops out. That makes stacks perfect for situations where we need to reverse order or backtrack. A few everyday examples:
+
+- Function calls use a call stack to remember where to return
+- Browsers push pages to a history stack so the back button works
+- Depth-first search pushes nodes as it dives deeper into a graph
+- Parsing expressions relies on stacks to handle parentheses and operator precedence
+
+### Complexity Recap
+
+| Operation | Time | Space impact |
+| --- | --- | --- |
+| push | O(1) | Amortised | doubling growth when capacity exhausted |
+| pop | O(1) | Amortised | occasionally shrinks depending on implementation |
+| peek | O(1) | None |
+
+The amortised note is the same story we saw with dynamic arrays: once in a while we pay O(n) to resize, but over a long sequence of operations the average stays constant.
+
+### Implementation
+
+Full code with tests in the [git repo](https://github.com/zdravkodanailov7/dsa). (stacks not up yet, coming soon)
+
+::: code-group labels=[Python, TypeScript]
+```python
+class Stack:
+    def __init__(self):
+        self.stack = []
+
+    def push(self, n):
+        self.stack.append(n)
+
+    def pop(self):
+        return self.stack.pop()
+    
+    def peek(self):
+        return self.stack[-1] if self.stack else None
+
+    def is_empty(self):
+        return not self.stack
+    
+    def size(self):
+        return len(self.stack)
+```
+
+```typescript
+export class Stack<T> {
+    private stack: T[] = [];
+
+    push(n: T): void {
+        this.stack.push(n);
+    }
+
+    pop(): T | undefined {
+        return this.stack.pop();
+    }
+
+    peek(): T | undefined {
+        return this.stack[this.stack.length - 1]
+    }
+
+    is_empty(): boolean {
+        return this.stack.length === 0;
+    }
+
+    size(): number {
+        return this.stack.length;
+    }
+}
+```
+:::
