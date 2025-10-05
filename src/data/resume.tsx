@@ -1,5 +1,5 @@
 import { Icons } from "@/components/icons";
-import { CodeIcon, HomeIcon, NotebookIcon } from "lucide-react";
+import { CodeIcon, FolderIcon, HomeIcon, NotebookIcon, PencilLineIcon } from "lucide-react";
 
 export const DATA = {
   name: "Zdravko Danailov",
@@ -36,7 +36,8 @@ export const DATA = {
   ],
   navbar: [
     { href: "/", icon: HomeIcon, label: "Home" },
-    { href: "/blog", icon: NotebookIcon, label: "Blog" },
+    { href: "/blog", icon: PencilLineIcon, label: "Blog" },
+    { href: "/projects", icon: FolderIcon, label: "Projects" },
     { href: "/dsa", icon: CodeIcon, label: "DSA" },
   ],
   contact: {
@@ -140,7 +141,7 @@ export const DATA = {
   projects: [
     {
       title: "Handwritten Digit Recogniser",
-      href: "/blog/digit-recogniser",
+      href: "/projects/digit-recogniser",
       dates: "Sep 2025",
       active: true,
       description:
@@ -159,7 +160,7 @@ export const DATA = {
         },
         {
           type: "Blog",
-          href: "/blog/digit-recogniser",
+          href: "/projects/digit-recogniser",
           icon: <NotebookIcon className="size-3" />,
         },
       ],
@@ -168,7 +169,7 @@ export const DATA = {
     },
     {
       title: "CreateMore",
-      href: "/blog/createmore",
+      href: "/projects/createmore",
       dates: "Sep 2024 - Present",
       active: true,
       description:
@@ -187,7 +188,7 @@ export const DATA = {
       links: [
         {
           type: "Blog",
-          href: "/blog/createmore",
+          href: "/projects/createmore",
           icon: <NotebookIcon className="size-3" />,
         },
       ],
@@ -196,7 +197,7 @@ export const DATA = {
     },
     {
       title: "FileTank",
-      href: "/blog/filetank",
+      href: "/projects/filetank",
       dates: "May 2025 - Present",
       active: true,
       description:
@@ -214,7 +215,7 @@ export const DATA = {
       links: [
         {
           type: "Blog",
-          href: "/blog/filetank",
+          href: "/projects/filetank",
           icon: <NotebookIcon className="size-3" />,
         },
       ],
@@ -223,7 +224,7 @@ export const DATA = {
     },
     {
       title: "LogToPost",
-      href: "/blog/logtopost",
+      href: "/projects/logtopost",
       dates: "2025 - Present",
       active: true,
       description:
@@ -244,7 +245,7 @@ export const DATA = {
         },
         {
           type: "Blog",
-          href: "/blog/logtopost",
+          href: "/projects/logtopost",
           icon: <NotebookIcon className="size-3" />,
         },
       ],
@@ -253,7 +254,7 @@ export const DATA = {
     },
     {
       title: "Goosey",
-      href: "/blog/goosey",
+      href: "/projects/goosey",
       dates: "2025 - Present",
       active: true,
       description:
@@ -262,7 +263,7 @@ export const DATA = {
       links: [
         {
           type: "Blog",
-          href: "/blog/goosey",
+          href: "/projects/goosey",
           icon: <NotebookIcon className="size-3" />,
         },
       ],
@@ -271,7 +272,7 @@ export const DATA = {
     },
     {
       title: "Portfolio Website",
-      href: "/blog/portfolio",
+      href: "/projects/portfolio",
       dates: "2025 - Present",
       active: true,
       description:
@@ -292,7 +293,7 @@ export const DATA = {
         },
         {
           type: "Blog",
-          href: "/blog/portfolio",
+          href: "/projects/portfolio",
           icon: <NotebookIcon className="size-3" />,
         },
       ],
