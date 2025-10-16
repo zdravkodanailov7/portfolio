@@ -1,0 +1,237 @@
+---
+title: "Singly Linked Lists"
+publishedAt: "2025-10-16"
+topic: "Linked Lists"
+topicOrder: 2
+---
+
+A singly linked list is a collection of nodes where each node holds a value and a pointer (reference) to the next node. Unlike arrays that store data contiguously in memory, linked lists scatter their nodes around RAM, connected via pointers. This flexibility comes with trade-offs worth understanding.
+
+### Core Structure
+
+Every node is an object with two things:
+
+- **value**: The data stored (an integer, string, object, etc.)
+- **next**: A pointer to the next node (or null if it's the last node)
+
+Imagine a chain: each link knows about the next link, but the links don't have to sit next to each other in memory. The head pointer tracks where the list starts, the tail pointer (if maintained) tracks the end.
+
+### Memory Layout
+
+Here's the key difference from arrays: the physical memory order doesn't match the logical order. Node 1 might be at address `$100`, Node 2 at `$500`, Node 3 at `$250`. But their next pointers connect them logically, so we traverse them in the right sequence.
+
+#### Traversal
+
+To walk through a linked list:
+
+::: code-group labels=[Python, TypeScript]
+```python
+current = head
+while current:
+    print(current.value)
+    current = current.next
+```
+
+```typescript
+let current = head;
+while (current) {
+    console.log(current.value);
+    current = current.next;
+}
+```
+:::
+
+We follow the chain until current becomes null (no more nodes). Time complexity is **O(n)** where n is the list size, just like looping through an array.
+
+### Operations
+
+#### Insert at End
+
+If we maintain a tail pointer, inserting at the end is **O(1)**:
+
+1. Create a new node
+2. Set tail.next to the new node
+3. Update tail to point to the new node
+
+Without a tail pointer, it's **O(n)** because we have to traverse to find the end.
+
+#### Remove a Node
+
+If we have a pointer to the *previous* node, removal is **O(1)**:
+
+Set `previous.next = current.next`, effectively skipping over the node we want to remove. The old node becomes unreachable (garbage collected).
+
+In the general case where we need to search for the node first, it's **O(n)**.
+
+#### Insert/Remove at Start
+
+With a head pointer, both are **O(1)**:
+
+- **Insert**: Create new node, set new node's next to head, update head to new node
+- **Remove**: Set head to head.next
+
+### Why Linked Lists?
+
+Arrays give constant-time random access (index lookup) but require shifting for middle inserts/removes. Linked lists need O(n) to find an element but only O(1) to remove once found. Pick based on your workload.
+
+**Advantages**:
+- Dynamic sizing (allocate as you go)
+- Fast inserts/removes at start or if you have a pointer to the location
+- No wasted capacity like arrays
+
+**Disadvantages**:
+- No random access (can't jump to the middle)
+- Extra memory per node for the pointer
+- Cache unfriendly (scattered in memory)
+
+### Complexity Summary
+
+| Operation | Time | Notes |
+| --- | --- | --- |
+| Access by index | O(n) | Must traverse from head |
+| Insert at start | O(1) | If you have head pointer |
+| Insert at end | O(1) | If you maintain tail pointer |
+| Insert/remove in middle | O(n) | Need to find the location first |
+| Remove at start | O(1) | If you have head pointer |
+
+### Implementation
+
+Full code with tests in the [git repo](https://github.com/zdravkodanailov7/dsa). (linked lists code coming soon!)
+
+::: code-group labels=[Python, TypeScript]
+```python
+class ListNode:
+    def __init__(self, value):
+        self.value = value
+        self.next = None
+
+class SinglyLinkedList:
+    def __init__(self):
+        self.head = None
+        self.tail = None
+    
+    def insert_end(self, value):
+        new_node = ListNode(value)
+        if not self.head:
+            self.head = self.tail = new_node
+        else:
+            self.tail.next = new_node
+            self.tail = new_node
+    
+    def insert_start(self, value):
+        new_node = ListNode(value)
+        if not self.head:
+            self.head = self.tail = new_node
+        else:
+            new_node.next = self.head
+            self.head = new_node
+    
+    def remove_start(self):
+        if self.head:
+            self.head = self.head.next
+            if not self.head:
+                self.tail = None
+    
+    def remove(self, value):
+        if not self.head:
+            return
+        # If head matches
+        if self.head.value == value:
+            self.remove_start()
+            return
+        # Search for the node
+        current = self.head
+        while current.next:
+            if current.next.value == value:
+                current.next = current.next.next
+                if not current.next:
+                    self.tail = current
+                return
+            current = current.next
+    
+    def print_list(self):
+        current = self.head
+        while current:
+            print(current.value, end=" -> ")
+            current = current.next
+        print("None")
+```
+
+```typescript
+class ListNode<T> {
+    value: T;
+    next: ListNode<T> | null = null;
+    
+    constructor(value: T) {
+        this.value = value;
+    }
+}
+
+export class SinglyLinkedList<T> {
+    private head: ListNode<T> | null = null;
+    private tail: ListNode<T> | null = null;
+    
+    insertEnd(value: T): void {
+        const newNode = new ListNode(value);
+        if (!this.head) {
+            this.head = this.tail = newNode;
+        } else {
+            if (this.tail) {
+                this.tail.next = newNode;
+            }
+            this.tail = newNode;
+        }
+    }
+    
+    insertStart(value: T): void {
+        const newNode = new ListNode(value);
+        if (!this.head) {
+            this.head = this.tail = newNode;
+        } else {
+            newNode.next = this.head;
+            this.head = newNode;
+        }
+    }
+    
+    removeStart(): void {
+        if (this.head) {
+            this.head = this.head.next;
+            if (!this.head) {
+                this.tail = null;
+            }
+        }
+    }
+    
+    remove(value: T): void {
+        if (!this.head) return;
+        
+        if (this.head.value === value) {
+            this.removeStart();
+            return;
+        }
+        
+        let current = this.head;
+        while (current.next) {
+            if (current.next.value === value) {
+                current.next = current.next.next;
+                if (!current.next) {
+                    this.tail = current;
+                }
+                return;
+            }
+            current = current.next;
+        }
+    }
+    
+    printList(): void {
+        let current = this.head;
+        let result = "";
+        while (current) {
+            result += current.value + " -> ";
+            current = current.next;
+        }
+        console.log(result + "None");
+    }
+}
+```
+:::

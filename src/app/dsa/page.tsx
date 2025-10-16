@@ -22,6 +22,13 @@ export default async function DsaPage() {
       </BlurFade>
       {posts
         .sort((a, b) => {
+          const topicOrderA = a.metadata.topicOrder ?? Infinity;
+          const topicOrderB = b.metadata.topicOrder ?? Infinity;
+
+          if (topicOrderA !== topicOrderB) {
+            return topicOrderA - topicOrderB;
+          }
+
           if (
             new Date(a.metadata.publishedAt) > new Date(b.metadata.publishedAt)
           ) {
