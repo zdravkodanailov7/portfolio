@@ -96,7 +96,7 @@ Arrays give constant-time random access (index lookup) but require shifting for 
 
 ### Implementation
 
-Full code with tests in the [git repo](https://github.com/zdravkodanailov7/dsa). (linked lists code coming soon!)
+Full code with tests in the [git repo](https://github.com/zdravkodanailov7/dsa/tree/main/singly_linked_list).
 
 ::: code-group labels=[Python, TypeScript]
 ```python
@@ -131,10 +131,10 @@ class SinglyLinkedList:
             self.head = self.head.next
             if not self.head:
                 self.tail = None
-    
+        
     def remove(self, value):
         if not self.head:
-            return
+            return 
         # If head matches
         if self.head.value == value:
             self.remove_start()
@@ -148,7 +148,7 @@ class SinglyLinkedList:
                     self.tail = current
                 return
             current = current.next
-    
+
     def print_list(self):
         current = self.head
         while current:
@@ -158,33 +158,32 @@ class SinglyLinkedList:
 ```
 
 ```typescript
-class ListNode<T> {
+interface ListNode<T> {
     value: T;
-    next: ListNode<T> | null = null;
-    
-    constructor(value: T) {
-        this.value = value;
-    }
+    next: ListNode<T> | null;
 }
 
 export class SinglyLinkedList<T> {
-    private head: ListNode<T> | null = null;
-    private tail: ListNode<T> | null = null;
-    
+    head: ListNode<T> | null;
+    tail: ListNode<T> | null;
+
+    constructor() {
+        this.head = null;
+        this.tail = null;
+    }
+
     insertEnd(value: T): void {
-        const newNode = new ListNode(value);
+        const newNode: ListNode<T> = { value, next: null };
         if (!this.head) {
             this.head = this.tail = newNode;
         } else {
-            if (this.tail) {
-                this.tail.next = newNode;
-            }
+            this.tail!.next = newNode;
             this.tail = newNode;
         }
     }
-    
+
     insertStart(value: T): void {
-        const newNode = new ListNode(value);
+        const newNode: ListNode<T> = { value, next: null };
         if (!this.head) {
             this.head = this.tail = newNode;
         } else {
@@ -192,7 +191,7 @@ export class SinglyLinkedList<T> {
             this.head = newNode;
         }
     }
-    
+
     removeStart(): void {
         if (this.head) {
             this.head = this.head.next;
@@ -201,15 +200,17 @@ export class SinglyLinkedList<T> {
             }
         }
     }
-    
+
     remove(value: T): void {
-        if (!this.head) return;
-        
+        if (!this.head) {
+            return;
+        }
+        // If head matches
         if (this.head.value === value) {
             this.removeStart();
             return;
         }
-        
+        // Search for the node
         let current = this.head;
         while (current.next) {
             if (current.next.value === value) {
@@ -222,15 +223,16 @@ export class SinglyLinkedList<T> {
             current = current.next;
         }
     }
-    
+
     printList(): void {
         let current = this.head;
-        let result = "";
+        let output = "";
         while (current) {
-            result += current.value + " -> ";
+            output += `${current.value} -> `;
             current = current.next;
         }
-        console.log(result + "None");
+        output += "None";
+        console.log(output);
     }
 }
 ```
