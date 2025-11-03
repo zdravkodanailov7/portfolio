@@ -71,14 +71,26 @@ export const DATA = {
   },
   work: [
     {
+      company: "YUV",
+      href: "#",
+      badges: [],
+      location: "London, UK",
+      title: "Full Stack Developer",
+      logoUrl: "/yuvbeauty_logo.jpeg",
+      start: "Oct 2025",
+      end: "Present",
+      description:
+        "Design, build, and maintain scalable full-stack apps and infrastructure. Develop secure and reliable back-end services, manage Stripe payments, and build modern, responsive front-ends. Lead analytics and e-commerce integrations, contribute to architecture, and support CI/CD as YUV grows.",
+    },
+    {
       company: "INK",
       href: "#",
       badges: [],
       location: "London, UK",
       title: "Software Engineer",
       logoUrl: "/ink_cropped.png",
-      start: " 2024",
-      end: "Present",
+      start: "Feb 2024",
+      end: "Oct 2025",
       description:
         "Solo-developed CreateMore, managing 2000+ projects across two companies with 20+ daily users. Also created FileTank, a scalable file sharing platform also spanning multiple companies.",
     },
