@@ -1,0 +1,591 @@
+---
+title: "Raycasting Engine"
+publishedAt: "2025-11-20"
+summary: "A JavaScript raycasting engine from scratch. A technique to create a 3D projection onto a 2D plane."
+---
+
+Raycasting is a technique to create a 3D projection onto a 2D plane. Older games used this because computers were not powerful enough for full 3D rendering. The first popular 3D game, Wolfenstein 3D, used this technique. Doom used a similar technique called binary space partitioning (BSP) to sort the render order of surfaces.
+
+We will use JavaScript with HTML5. It is accessible and quick to prototype. You also don't need many resources for this, so a text editor and a web browser will be sufficient.
+
+Also, do not confuse raycasting with raytracing.
+Raycasting is a specific rendering technique, whereas raytracing is a broader concept.
+Raytracing determines the visibility of surfaces by tracing imaginary rays of light from the viewer's eyes to objects in the scene.
+
+The differences between the two:
+
+**Raycasting:**
+- Fast and can be used for low performance devices
+- not realistic, this works with "blocks"
+- can process simple geometric shapes only
+- the result image is stored on RAM
+- easy to implement
+
+**Raytracing:**
+- slow for the amount of processing it needs to calculate
+- realistic, every canvas pixel needs to be calculated
+- can render almost every shape
+- the result is generally stored on disk memory
+- complex to implement
+
+## Logic
+
+Raycasting is a 3D projection of a 2D map. We will transform a number matrix (map) into a projection (screen) using the raycasting method.
+Basically, you cast rays in the direction of the player's view. You do this to find the walls of the map and check the distance to the wall to calculate the height of the line we need to draw on the canvas. The map will be an integer matrix with 1 or 0 values. 0 represents empty space, and 1 represents a wall.
+
+The projection will be drawn on the screen from left to right. Every ray corresponds to an x-axis slice of the screen. So, if you have a screen that is 640x480, you will need to cast 640 rays to project the result.
+
+For each ray you cast, you will need to calculate its direction to iterate through the positions of this ray and find a wall. The initial ray position starts from the player's position and moves forward relative to the player's FOV.
+
+### Steps
+
+Raycasting is seperated into these steps below to organise the implementation of it:
+
+1. Define a ray angle in relation of the player FOV
+2. Create a ray loop. The loop will iterate the width of the screen
+3. Get the `sin` and `cos` of the ray angle to discover the numbers to increment to follow forward with the ray
+4. create a loop to check if the position of the ray is a wall, if not a wall increment with sin and cos values and check again
+5. After finding a wall, calculate the distance between the player coordinates and the ray coordinates using the Pythagorean theorem.
+6. Calculate the wall height by dividing the screen's half-height by the distance.
+7. Draw the "ceiling" line from the top of the screen to the top of the wall.
+8. Draw the "wall" line based on the calculated wall height.
+9. Draw the "floor" line from the bottom of the wall to the bottom of the screen.
+10. Repeat this process for every ray.
+
+Basically, we are drawing lines. That's it.
+
+### Files
+
+We will use html and js to create this.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>RayCasting Tutorial</title>
+</head>
+<body>
+    
+</body>
+<script src="raycasting.js"></script>
+</html>
+```
+
+### Attributes
+
+Let's define some attributes that will be used to create the projection
+
+| Attribute                | Description                                                                                                                                         | Value                        |
+|--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------|
+| Screen width             | The width of the screen                                                                                                                             | 640                          |
+| Screen height            | The height of the screen                                                                                                                            | 480                          |
+| Screen half width        | The screen width divided by 2                                                                                                                       | Screen width / 2             |
+| Screen half height       | The screen height divided by 2                                                                                                                      | Screen height / 2            |
+| Render delay             | The delay time for every render iteration                                                                                                           | 30 milliseconds              |
+| Player FOV               | The field of view of the player. Typically, games use 60. (Humans have ~90, but 60 is preferable visually for 2D screens.)                         | 60                           |
+| Player half FOV          | Field of view divided by 2                                                                                                                          | Player FOV / 2               |
+| Player X                 | The player's x coordinate                                                                                                                           | 2                            |
+| Player Y                 | The player's y coordinate                                                                                                                           | 2                            |
+| Player angle             | The angle for the player's view direction                                                                                                           | 90                           |
+| RayCasting increment angle | The value to increment the ray angle for each column in relation to screen width                                                                   | Player FOV / Screen width    |
+| RayCasting precision     | Granularity of ray steps for wall detection (higher value = more precision, more iterations)                                                        | 64                           |
+| Map                      | The integer matrix that defines the level layout. Must be surrounded by walls to prevent out-of-bounds errors.                                      | See code example             |
+| Screen                   | The canvas element used for rendering                                                                                                               | Created at runtime           |
+| Screen Context           | The 2D drawing context obtained from the canvas                                                                                                     | Obtained at runtime          |
+
+
+Some values are `null` because they will be either calculated or defined at runtime. Values could be in separate variables, but I put them in an object to keep things organized. 
+
+```javascript
+let data = {
+    screen: {
+        width: 640,
+        height: 480,
+        halfWidth: null,
+        halfHeight: null
+    },
+    render: {
+        delay: 30
+    },
+    rayCasting: {
+        incrementAngle: null,
+        precision: 64
+    },
+    player: {
+        fov: 60,
+        halfFov: null,
+        x: 2,
+        y: 2,
+        angle: 90
+    },
+    map: [
+        [1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,1],
+        [1,0,0,1,1,0,1,0,0,1],
+        [1,0,0,1,0,0,1,0,0,1],
+        [1,0,0,1,0,0,1,0,0,1],
+        [1,0,0,1,0,1,1,0,0,1],
+        [1,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1],
+    ]
+}
+```
+
+For calculated values we will define these after the object is defined
+
+```javascript
+// Calculated data
+data.screen.halfWidth = data.screen.width / 2;
+data.screen.halfHeight = data.screen.height / 2;
+data.rayCasting.incrementAngle = data.player.fov / data.screen.width;
+data.player.halfFov = data.player.fov / 2;
+```
+
+### Canvas
+
+We use the canvas to draw the projection. We will create it at runtime, though it can also be created in the HTML.
+
+This code creates the canvas with the specified attributes above:
+
+```javascript
+// Canvas
+const screen = document.createElement('canvas');
+screen.width = data.screen.width;
+screen.height = data.screen.height;
+screen.style.border = "1px solid black";
+document.body.appendChild(screen);
+
+// Canvas context
+const screenContext = screen.getContext("2d");
+```
+
+### Utils
+
+To create the raycasting logic we will need to use some trig funcs, like `Math.sin()` etc.
+These funcs work with radian values, not degrees, but we are using degree values so first we need to create a func that converts degree values into radian values.
+The formula is
+`degree * π / 180`
+
+With that as the base we can create this function
+
+```javascript
+/**
+ * Cast degree to radian
+ * @param {Number} degree 
+ */
+function degreeToRadians(degree) {
+    let pi = Math.PI;
+    return degree * pi / 180;
+}
+```
+
+As I previously mentioned all we are doing is drawing lines on the canvas, to simplify our job we will create a function to draw these lines
+
+```javascript
+/**
+ * Draw line into screen
+ * @param {Number} x1 
+ * @param {Number} y1 
+ * @param {Number} x2 
+ * @param {Number} y2 
+ * @param {String} cssColor 
+ */
+function drawLine(x1, y1, x2, y2, cssColor) {
+    screenContext.strokeStyle = cssColor;
+    screenContext.beginPath();
+    screenContext.moveTo(x1, y1);
+    screenContext.lineTo(x2, y2);
+    screenContext.stroke();
+}
+```
+
+We now have everything we need to start our raycasting logic.
+
+## Game Cycle
+
+The raycasting projection needs to be redrawn every render iteration.
+We will create a simple thing that will be just the loop render creation and the most important function of this whole thing.
+
+Le Raycasting Function
+
+```javascript
+/**
+ * Raycasting logic
+ */
+function rayCasting() {}
+```
+
+We don't have the logic yet but that's coming.
+
+Another thing we will need is a clear screen function, simple stuff
+
+```javascript
+/**
+ * Clear screen
+ */
+function clearScreen() {
+    screenContext.clearRect(0, 0, data.screen.width, data.screen.height);
+}
+```
+
+Good good, now we need to create the `main()` function that will be our main loop. We will need an interval to create a render thread
+use the renderDelay data value from our attributes to be the delay for every render cycle iteration
+after creating the function we can call it where it will be the start function of the code
+
+```javascript
+// Start
+main();
+
+/**
+ * Main loop
+ */
+function main() {
+    setInterval(function() {
+        clearScreen();
+        rayCasting();
+    }, data.render.delay);
+}
+```
+
+## Raycasting
+
+To start our logic we need to know some concepts with the plater angle, player FOV and the screen width.
+
+The first thing we need to know is that each ray needs to be thrown in relation of the player angle and the FOV. The player FOV is `60º` but the player focus is in the middle of the FOV. Because we have to start the raycasting in `-30º` of the player angle.
+
+Inside our `rayCasting()` function, we can get the actual ray angle with this code
+
+```javascript
+function rayCasting() {
+    let rayAngle = data.player.angle - data.player.halfFov;
+}
+```
+
+After it, we will start the cast of the rays. remember that we have to iterate all the screen slices, so we will use the screen width to do this. For each iteration the `rayAngle` variable needs to be incremented to iterate the entire player FOV, we will use the `data.rayCasting.incrementAngle` to do it.
+
+```javascript
+function rayCasting() {
+    let rayAngle = data.player.angle - data.player.halfFov;
+
+    for(let rayCount = 0; rayCount < data.screen.width; rayCount++) {
+        
+        // ...
+
+        // Increment
+        rayAngle += data.rayCasting.incrementAngle;
+    }
+}
+```
+
+The next step will be created inside the ray loop, and before the ray angle increment.
+
+The first coordinates of the ray match the player coordinates. We will create an object with these values to stay organized. 
+
+```javascript
+// Ray data
+let ray = {
+    x: data.player.x,
+    y: data.player.y
+}
+```
+
+To discover the next coordinates of the actual ray, we have to calculate this based on the ray angle, for this step we will use the trig functions. These funcs will give us the increment values to give for the ray to follow forward. In this step we will use the precision attribute too, to control the interval of each position of the ray. The `sin` and `cos` give us float values, but we can divide these values with the precision to turn these values smaller.
+
+Note that the higher the precision, more checkings will be executed and more positions of the ray we will have. We will not use a DDA algorithm that is used to find just the intersections in the grid. To focus making the simplest way.
+
+Also note that we will be using our `degreeToRadians()` function here
+
+```javascript
+// Ray path incrementers
+let rayCos = Math.cos(degreeToRadians(rayAngle)) / data.rayCasting.precision;
+let raySin = Math.sin(degreeToRadians(rayAngle)) / data.rayCasting.precision;
+```
+
+The next step is the wall checking. We have to increment the rayCos and raySin to x and y ray coordinates until we find a wall in the map. So, in this step we need a loop.
+
+Note: remember that the matrix positions are represented in integer coordinates, the ray positions incremented with the cos and sin will be float values and we need to convert these values to integer type. We use `Math.floor()` for this.
+
+```javascript
+// Wall checking
+let wall = 0;
+while(wall == 0) {
+    ray.x += rayCos;
+    ray.y += raySin;
+    wall = data.map[Math.floor(ray.y)][Math.floor(ray.x)];
+}
+```
+
+When the ray collides with some wall, the loop will be stopped and we will have the ray coordinates updated with the wall position. The RayCasting distance is calculated in this step, to know the strip size that we will need to draw. If the wall is near, the distance will be lower and then the line drawn will be bigger. If the wall is far, the distance will be bigger and the drawn line will be smaller.
+
+For this distance calc we will use the pythagoras theorem. This formula will be used with the player coordinates and the wall coordinates.
+
+Pythagoras Theorem: `a² + b² = c²`
+Formula: `distance² = (player x - ray x)² + (player y - ray y)²`
+Code: `Math.sqrt( Math.pow( data.player.x - ray.x, 2 ) + Math.pow( data.player.y - ray.y, 2 ) );`
+
+The code will be
+
+```javascript
+// Pythagoras theorem
+let distance = Math.sqrt(Math.pow(data.player.x - ray.x, 2) + Math.pow(data.player.y - ray.y, 2));
+```
+
+With the distance we have to define the wall height, the wall height will be used to draw the strip in the canvas. We cannot use the distance directly because we need to reverse the value. The bigger the distance the smaller the strip.
+To reverse the value we can divide the distance value with the `data.screen.halfHeight`. This value will define the same size for the width, height and length.
+
+Note: the `wallHeight` value will be used to draw the strip in the canvas. The canvas coordinates are represented with an integer type, so we need to convert again using `Math.floor()`, the canvas drawer does accept float values but in our case it will not be good practice.
+
+```javascript
+// Wall height
+let wallHeight = Math.floor(data.screen.halfHeight / distance);
+```
+
+The wall height will be used to draw the stripes. This step is divided into three operations
+
+1. Draw the ceiling (From screen top to screen half height minus wall height)
+2. Draw the wall (From screen half height minus wall height to screen half height plus wall height)
+3. Draw the floor (From screen half height plus wall height to screen bottom)
+
+We will use preset colors, and we will use the `drawLine()` func we created earlier too.
+
+```javascript
+// Draw
+drawLine(rayCount, 0, rayCount, data.screen.halfHeight - wallHeight, "cyan");
+drawLine(rayCount, data.screen.halfHeight - wallHeight, rayCount, data.screen.halfHeight + wallHeight, "red");
+drawLine(rayCount, data.screen.halfHeight + wallHeight, rayCount, data.screen.height, "green");
+```
+
+Entire code:
+
+```javascript
+/**
+ * Raycasting logic
+ */
+function rayCasting() {
+    let rayAngle = data.player.angle - data.player.halfFov;
+    for(let rayCount = 0; rayCount < data.screen.width; rayCount++) {
+        
+        // Ray data
+        let ray = {
+            x: data.player.x,
+            y: data.player.y
+        }
+
+        // Ray path incrementers
+        let rayCos = Math.cos(degreeToRadians(rayAngle)) / data.rayCasting.precision;
+        let raySin = Math.sin(degreeToRadians(rayAngle)) / data.rayCasting.precision;
+        
+        // Wall finder
+        let wall = 0;
+        while(wall == 0) {
+            ray.x += rayCos;
+            ray.y += raySin;
+            wall = data.map[Math.floor(ray.y)][Math.floor(ray.x)];
+        }
+
+        // Pythagoras theorem
+        let distance = Math.sqrt(Math.pow(data.player.x - ray.x, 2) + Math.pow(data.player.y - ray.y, 2));
+
+        // Wall height
+        let wallHeight = Math.floor(data.screen.halfHeight / distance);
+
+        // Draw
+        drawLine(rayCount, 0, rayCount, data.screen.halfHeight - wallHeight, "cyan");
+        drawLine(rayCount, data.screen.halfHeight - wallHeight, rayCount, data.screen.halfHeight + wallHeight, "red");
+        drawLine(rayCount, data.screen.halfHeight + wallHeight, rayCount, data.screen.height, "green");
+
+        // Increment
+        rayAngle += data.rayCasting.incrementAngle;
+    }
+}
+```
+
+We now have basic raycasting working.
+
+## Basic Movement
+
+To create player movement, we will use event listeners. An event listener will be attached to the document to check when a user presses a keyboard key. We will listen for W, A, S, and D.
+
+First thing to do is to add new attributes to our data. The first attributes are the identifier of the keys
+
+```javascript
+// Data
+let data = {
+    // ...
+    key: {
+        up: "KeyW",
+        down: "KeyS",
+        left: "KeyA",
+        right: "KeyD"
+    }
+}
+```
+
+The second attributes are the speed of the player, there are two types, move speed and rotation speed. Both are used for the movement logic, of course.
+
+```javascript
+let data = {
+    // ...
+    player: {
+        // ...
+        speed: {
+            movement: 0.5,
+            rotation: 5.0
+        }
+    }
+}
+```
+
+So now we have to actually create the movement logic, this is what each key will do
+
+Key      | Action
+---------|---------------------------------------------------------------------
+W (up)   | Use the player's angle to calculate sin and cos; move player forward.
+S (down) | Use the player's angle to calculate sin and cos; move player backward.
+A (left) | Rotate the player's angle to the left (decrease angle).
+D (right)| Rotate the player's angle to the right (increase angle).
+
+Note that for up and down we need to get the `sin` and `cos` values from the player angle to discover that is the value we need to increment/decrement by for the player coordinates. If we just increment the coordinates without checking the angle, the player will not go in the view position in relation of the angle but rather always in the same direction.
+
+To create the key event, we will put the listener to the document of the page. The event we will use for this step is `keydown`.
+
+```javascript
+/**
+ * Movement Event
+ */
+document.addEventListener('keydown', (event) => {
+    let keyCode = event.code;
+
+    if(keyCode === data.key.up) {
+
+    } else if(keyCode === data.key.down) {
+
+    } else if(keyCode === data.key.left) {
+
+    } else if(keyCode === data.key.right) {
+
+    }
+});
+```
+
+For up and down logic, we need to get the `sin` and `cos` of the player angle to discover the player direction an what we need to increment for the player coordinates to move the player. In this step we will multiply the `sin` and `cos` values with the player movement speed.
+
+Note: Remember to convert to radians first.
+
+```javascript
+// ...
+if(keyCode === data.key.up) {
+    let playerCos = Math.cos(degreeToRadians(data.player.angle)) * data.player.speed.movement;
+    let playerSin = Math.sin(degreeToRadians(data.player.angle)) * data.player.speed.movement;
+    data.player.x += playerCos;
+    data.player.y += playerSin;
+} else if(keyCode === data.key.down) {
+    let playerCos = Math.cos(degreeToRadians(data.player.angle)) * data.player.speed.movement;
+    let playerSin = Math.sin(degreeToRadians(data.player.angle)) * data.player.speed.movement;
+    data.player.x -= playerCos;
+    data.player.y -= playerSin;
+} 
+// ...
+```
+
+For the left and the right movement, we simply increment or decrement the angle of the player with the player rotation speed
+
+```javascript
+// ...
+} else if(keyCode === data.key.left) {
+    data.player.angle -= data.player.speed.rotation;
+} else if(keyCode === data.key.right) {
+    data.player.angle += data.player.speed.rotation;
+} 
+// ...
+```
+
+Nice, we can move, only issue is that there is no collision test, we can phase through the walls and cause an exception in our program. To create the collision logic, before you increment the player coordinates for the up and down logic, we need to check if the new position of the player is a wall. If it is then we will not change the coordinates, if not then we change.
+
+```javascript
+// ...
+if(keyCode === data.key.up) {
+    let playerCos = Math.cos(degreeToRadians(data.player.angle)) * data.player.speed.movement;
+    let playerSin = Math.sin(degreeToRadians(data.player.angle)) * data.player.speed.movement;
+    let newX = data.player.x + playerCos;
+    let newY = data.player.y + playerSin;
+
+    // Collision test
+    if(data.map[Math.floor(newY)][Math.floor(newX)] == 0) {
+        data.player.x = newX;
+        data.player.y = newY;
+    }
+} else if(keyCode === data.key.down) {
+    let playerCos = Math.cos(degreeToRadians(data.player.angle)) * data.player.speed.movement;
+    let playerSin = Math.sin(degreeToRadians(data.player.angle)) * data.player.speed.movement;
+    let newX = data.player.x - playerCos;
+    let newY = data.player.y - playerSin;
+
+    // Collision test
+    if(data.map[Math.floor(newY)][Math.floor(newX)] == 0) {
+        data.player.x = newX;
+        data.player.y = newY;
+    }
+} 
+// ...
+```
+
+Collisions implemented.
+
+## Fisheye Fix
+
+You can kinda see that the walls of the projections were kinda distorted. This occurs because the method to throw the ray that we used starts from the player, so the side arrays will be more distant than the middle arrays. This effect is called Fisheye. To correct it, we need to translate the distance of the rays removing the distorted distance in relation of the player.
+
+Based on the first example, we can see the right triangle between the player position and the wall position. The angle values need to be processed to correct the distorted distance. To do this, we can use trigonometry.
+
+The view to the wall collision is a right triangle, the wrong distance is the hypotenuse, the angle of the ray, and the correct distance is the adjacent side (this is what we need to discover). We have the hypotenuse value and the angle, so we can use the cosine formula to find the adjacent.
+
+```
+hypotenuse = 10
+angle = 30
+adjacent_side = x
+
+// Formula
+COS(angle) = adjacent_side / hypotenuse
+
+// Rotate the formula to solve the problem
+COS(angle) = adjacent_side / hypotenuse
+COS(angle) * hypotenuse = (adjacent_side / hypotenuse) * hypotenuse // (Add multiplier)
+COS(angle) * hypotenuse = adjacent_side // (Remove redundant)
+adjacent_side = hypotenuse * COS(angle) // Right!
+```
+
+Note: remember to use radians.
+
+Ok, we have our formula, but there is a problem, the angle we used is the entire angle (player angle +  ray angle), we have to use just the ray angle to get the correct adjacent side value (correct distance), so the formula in the code will be:
+
+`adjacent side = hypotenuse * COS(ray angle - player angle)`
+
+The formula will be applied after the get distance in `rayCasting()` func, code will be:
+
+```javascript
+// ...
+
+// Pythagoras theorem
+let distance = Math.sqrt(Math.pow(data.player.x - ray.x, 2) + Math.pow(data.player.y - ray.y, 2));
+
+// Fish eye fix
+distance = distance * Math.cos(degreeToRadians(rayAngle - data.player.angle));
+
+// Wall height
+let wallHeight = Math.floor(data.projection.halfHeight / distance);
+
+// ...
+```
+
+We now have basic raycasting working with movement. Well done.
+
+## Scale, Textures, and Optimization
+
+(Refer to the full implementation in the interactive demo above for the complete code including textures, floor casting, and buffer optimization.)
+
