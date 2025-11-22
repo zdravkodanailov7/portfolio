@@ -161,6 +161,11 @@ export const DATA = {
       technologies: ["JavaScript", "TypeScript", "HTML5 Canvas", "React"],
       links: [
         {
+          type: "Source",
+          href: "https://github.com/zdravkodanailov7/raycasting",
+          icon: <Icons.github className="size-3" />,
+        },
+        {
           type: "Blog",
           href: "/projects/raycasting",
           icon: <NotebookIcon className="size-3" />,

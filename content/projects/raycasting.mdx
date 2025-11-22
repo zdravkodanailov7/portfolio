@@ -1,16 +1,22 @@
 ---
 title: "Raycasting Engine"
-publishedAt: "2025-11-20"
+publishedAt: "2025-11-22"
 summary: "A JavaScript raycasting engine from scratch. A technique to create a 3D projection onto a 2D plane."
 ---
+
+<p className="text-neutral-500 text-sm italic mt-2 mb-8">
+  This is a complete from-scratch raycasting engine, originally written in plain JavaScript and now fully ported to TypeScript with static typing, minor refactors, and a few quality-of-life improvements.  
+  The original implementation can be found <a href="https://github.com/zdravkodanailov7/raycasting" target="_blank" rel="noopener noreferrer" className="underline hover:text-neutral-800 dark:hover:text-neutral-200">here</a>.  
+  I've embedded the engine directly on this page so you can try it instantly, no extra clicks required.
+</p>
 
 Raycasting is a technique to create a 3D projection onto a 2D plane. Older games used this because computers were not powerful enough for full 3D rendering. The first popular 3D game, Wolfenstein 3D, used this technique. Doom used a similar technique called binary space partitioning (BSP) to sort the render order of surfaces.
 
 We will use JavaScript with HTML5. It is accessible and quick to prototype. You also don't need many resources for this, so a text editor and a web browser will be sufficient.
 
-Also, do not confuse raycasting with raytracing.
-Raycasting is a specific rendering technique, whereas raytracing is a broader concept.
-Raytracing determines the visibility of surfaces by tracing imaginary rays of light from the viewer's eyes to objects in the scene.
+Also, do not confuse raycasting with ray tracing.
+Raycasting is a specific rendering technique, whereas ray tracing is a broader concept.
+Ray tracing determines the visibility of surfaces by tracing imaginary rays of light from the viewer's eyes to objects in the scene.
 
 The differences between the two:
 
@@ -24,7 +30,7 @@ Raycasting:
 ![Raycasting Example](/content/raycasting/raycasting.png)
 
 
-Raytracing:
+Ray tracing:
 - Slow for the amount of processing it needs to calculate
 - Realistic, every canvas pixel needs to be calculated
 - Can render almost every shape
@@ -217,7 +223,7 @@ We now have everything we need to start our raycasting logic
 ## Game Cycle
 
 The raycasting projection needs to be redrawn every render iteration.
-We will create a simple thing that will be just the loop render creation and the most important function of this whole ting
+We will create a simple thing that will be just the loop render creation and the most important function of this whole thing
 
 Le Raycasting Function
 
@@ -262,7 +268,7 @@ function main() {
 
 ## Raycasting
 
-To start our logic we need to know some concepts with the plater angle, player FOV and the screen width
+To start our logic we need to know some concepts with the player angle, player FOV and the screen width
 
 The first thing we need to know is that each ray needs to be thrown in relation of the player angle and the FOV. The player FOV is `60º` but the player focus is in the middle of the FOV. Because we have to start the raycasting in `-30º` of the player angle.
 
@@ -497,7 +503,7 @@ document.addEventListener('keydown', (event) => {
 });
 ```
 
-For up and down logic, we need to get the `sin` and `cos` of the player angle to discover the player direction an what we need to increment for the player coordinates to move the player. In this step we will multiply the `sin` and `cos` values with the player movement speed.
+For up and down logic, we need to get the `sin` and `cos` of the player angle to discover the player direction and what we need to increment for the player coordinates to move the player. In this step we will multiply the `sin` and `cos` values with the player movement speed.
 
 Note: Remember to convert to radians first.
 
@@ -531,7 +537,7 @@ For the left and the right movement, we simply increment or decrement the angle 
 
 ![no-collision-movement](/content/raycasting/no-collision-movement.mp4)
 
-Nice, we can move, only issue is that there is no collision test, we can phase through the walls and cause an exception in our program. To create the collision logic, before you increment the player coordinates for the up and down logicss we need to check if the new position of the player is a well. If it is then we will not change the coordinates, if not then we change
+Nice, we can move, only issue is that there is no collision test, we can phase through the walls and cause an exception in our program. To create the collision logic, before you increment the player coordinates for the up and down logics we need to check if the new position of the player is a wall. If it is then we will not change the coordinates, if not then we change
 
 ```
 // ...
@@ -567,13 +573,13 @@ Collisions implemented.
 
 ## Fisheye Fix
 
-You can kinda see that the walls of the projections were kinda distorted. This occurs because the method to throw the ray that we used starts from the player, so the side arrays will be more distant than the middle arrays. This effect is called Fisheye. To correct it, we need to translate the distance of the rays removing the distorted distance in relation of the player.
+You can kinda see that the walls of the projections were kinda distorted. This occurs because the method to throw the ray that we used starts from the player, so the side rays will be more distant than the middle rays. This effect is called Fisheye. To correct it, we need to translate the distance of the rays removing the distorted distance in relation of the player.
 
 ![Fisheye Effect](/content/raycasting/fisheye.png)
 
 Based on the first example, we can see the right triangle between the player position and the wall position. The angle values need to be processed to correct the distorted distance. To do this, we can use trigonometry.
 
-![SohCahToa](/content/raycasting/suckmytoa.png)
+![SohCahToa](/content/raycasting/sohcahtoa.png)
 
 These are the trig formulas. And this is the situation we have
 
@@ -1391,11 +1397,11 @@ Will be implementing a buffer, floor and ceiling casting too
 
 Most important part of this, so far we have done the simplest implementation possible, now with the buffer we will obtain optimal performance to render our application, it will enable us to use each pixel instead of processing intervals (lines). If we dont use biffer for pixel processing, the rendering will be very slow
 
-The buffer is just image data that wil be used for draws, and after every draw only the image that is in the buffer will be rendered. This array has 4 positions for every pixel we have, and each position represents the RGBA values. In this case, we will need to manipulate this array to draw the pixels inside. To know what is the correct position in relation of the projection as a matrix, we will use this formula to access the indexes.
+The buffer is just image data that will be used for draws, and after every draw only the image that is in the buffer will be rendered. This array has 4 positions for every pixel we have, and each position represents the RGBA values. In this case, we will need to manipulate this array to draw the pixels inside. To know what is the correct position in relation of the projection as a matrix, we will use this formula to access the indexes.
 
 Formula: `index = 4 * (x + y * data.projection.width)`
 
-The multiplied `4` is the offset for the RGBA values and teh `y * data.projection.width` is the offset for each y-axis position.
+The multiplied `4` is the offset for the RGBA values and the `y * data.projection.width` is the offset for each y-axis position.
 
 The first thing we will do is define the buffer, we will define two more attribbutes for our `data.projection` object. The first is the image data reference, and the second is the buffer.
 
@@ -1527,7 +1533,7 @@ function parseImageData(imageData) {
 }
 ```
 
-Now we need to render our buffer in our screen. For this we need to create the last function of this step called `renderBuffer()`. This function will be called from the main loop, after all of the procecss functions.
+Now we need to render our buffer in our screen. For this we need to create the last function of this step called `renderBuffer()`. This function will be called from the main loop, after all of the process functions.
 
 Important: We create the offscreen canvas *once* outside the loop. Creating it inside the loop would cause a massive memory leak.
 
@@ -1575,7 +1581,7 @@ Buffer is very important for the performance of the rendering, good stuff
 
 Background rendering is easy to implement, there is no mystery. First we need an image
 
-Our image has to have the size in relation of the projection size. The background is drawn from the top fo the middle height in the screen, so the image height wil have to be halg the height of our projection. The width of the image is in relation of the player angle, the value will be 360, because the image will repeat when the player does a full rotation. In this case the background image width: `360px`, background image height `120px`.
+Our image has to have the size in relation of the projection size. The background is drawn from the top fo the middle height in the screen, so the image height will have to be halg the height of our projection. The width of the image is in relation of the player angle, the value will be 360, because the image will repeat when the player does a full rotation. In this case the background image width: `360px`, background image height `120px`.
 
 ![background](/content/raycasting/background.png)
 
@@ -1622,7 +1628,7 @@ function loadBackgrounds() {
 }
 ```
 
-Now we will call this function after calling the `laodTextures()` function.
+Now we will call this function after calling the `loadTextures()` function.
 
 ```
 // Start
@@ -1664,7 +1670,7 @@ function drawBackground(x, y1, y2, background) {
 }
 ```
 
-Inside the loop we will need to define two variables that represent the coordinates of the image. When the player is with angle 0, the image wil be drawn from `x: 0` to `x: 60`. When the player is with angle 320 for example the image will be drawn from `x: 320` to `x: 20`. For this case there is a repetition so, we will use the modulo operator to make the offset.
+Inside the loop we will need to define two variables that represent the coordinates of the image. When the player is with angle 0, the image will be drawn from `x: 0` to `x: 60`. When the player is with angle 320 for example the image will be drawn from `x: 320` to `x: 20`. For this case there is a repetition so, we will use the modulo operator to make the offset.
 
 ```
 /**
@@ -1726,13 +1732,11 @@ function rayCasting() {
 
 Note: i used the constant data.backgrounds[0] reference, but we can define some attributes in our data object to reference the background that will be used for the current level for example.
 
-![background video](/content/raycasting/background.mp4)
-
 ## Floorcasting
 
 Floorcasting is the name of the technique to draw floors in raycasting projections by some texture.
 
-There are some techniques (vertical strip render, horizontal strip render, etc...) that can be used to render the floorcasting, here we wil use the easiest one however it is not the best technique since the processing used it not so optimised.
+There are some techniques (vertical strip render, horizontal strip render, etc...) that can be used to render the floorcasting, here we will use the easiest one however it is not the best technique since the processing used it not so optimised.
 
 To make the floorcasting, we will start to iterate from the next pixel after the wall to the last pixel of the projection. For each pixel, we will calculate the distance of this pixel, and get the coordinates using this distance to discover the tile in the map. With the tile we can find the texture that will be used for this pixel.
 
@@ -1762,7 +1766,7 @@ function drawFloor(x1, wallHeight, rayAngle) {
 }
 ```
 
-So now we wil create the iteration between the pixels:
+So now we will create the iteration between the pixels:
 
 ```
 function drawFloor(x1, wallHeight, rayAngle) {
@@ -1772,12 +1776,12 @@ function drawFloor(x1, wallHeight, rayAngle) {
 }
 ```
 
-Good, now i will explain the formula we will use to calculate the distance of each pixel in the projection plane. This formula generates a distance value in the range of the pixel between the half height of the projection and the height of the projection. By knowing that the last pixel will have a distance of 1 because this pixel is teh closest pixel to the payer, and the pixel in the half height on the projection will have an infinite distance, we can make the range using this formula:
+Good, now i will explain the formula we will use to calculate the distance of each pixel in the projection plane. This formula generates a distance value in the range of the pixel between the half height of the projection and the height of the projection. By knowing that the last pixel will have a distance of 1 because this pixel is the closest pixel to the player, and the pixel in the half height on the projection will have an infinite distance, we can make the range using this formula:
 
 Formula: `pixel distance = projection height / (2 * pixel_y - projection height)`
 Code: `distance = data.projection.height / (2 * y - data.projection.height)`
 
-For exmaple the formula will generate these values for a projection plane with height 20:
+For example the formula will generate these values for a projection plane with height 20:
 
 ```
 height = 20
@@ -1826,7 +1830,7 @@ function drawFloor(x1, wallHeight, rayAngle) {
 }
 ```
 
-Ok but it is still not working. We calculated the distance and the position from the zero coords, not relative from the player coords. To offset with the player coords and get the exact location, just sum the time coords with the player coors. This is necessary because if you are in the 0,0 position in the map, it will work fine, but if you move the player, the position of the floor will not be the same
+Ok but it is still not working. We calculated the distance and the position from the zero coords, not relative from the player coords. To offset with the player coords and get the exact location, just sum the time coords with the player coords. This is necessary because if you are in the 0,0 position in the map, it will work fine, but if you move the player, the position of the floor will not be the same
 
 ```
 function drawFloor(x1, wallHeight, rayAngle) {
@@ -1873,7 +1877,7 @@ function drawFloor(x1, wallHeight, rayAngle) {
 }
 ```
 
-After getting the texture we have to get the colour. To get this, we will be sure to keep the values inside the range of the texture using mod operator and we will multiply the values by the texture size, to repeat by the correct size of the tile in the map. Again we have to remember the `Math.floor()` to cast the values to integer before getting the colour and to finish the Floorcasting, we just need to draw the colour into the projection by the x coordinate got from argument and the y coordinate for deom the for iterator
+After getting the texture we have to get the colour. To get this, we will be sure to keep the values inside the range of the texture using mod operator and we will multiply the values by the texture size, to repeat by the correct size of the tile in the map. Again we have to remember the `Math.floor()` to cast the values to integer before getting the colour and to finish the Floorcasting, we just need to draw the colour into the projection by the x coordinate got from argument and the y coordinate from the for iterator
 
 Note: remember that the texture colour array is not a matrix, so we need to calculate the coordinates position first using: `x + y * width`
 
@@ -1890,7 +1894,7 @@ color = texture.data[texture_x + texture_y * texture.width];
 drawPixel(x1, y, color)
 ```
 
-To start drawing the floor, lets import the texture like the other parts of the tutorial. For this, i created a new texture array in data object with the floor textures only, and i changed the `loadTexture()` function to oad the floorTextures too/ the texture i used to test the floorcasting is the texture below
+To start drawing the floor, lets import the texture like the other parts of the tutorial. For this, i created a new texture array in data object with the floor textures only, and i changed the `loadTexture()` function to load the floorTextures too/ the texture i used to test the floorcasting is the texture below
 
 ![test-floor](/content/raycasting/test_floor.png)
 
@@ -1955,7 +1959,7 @@ Lets test the result
 
 ![wrong floor result](/content/raycasting/wrong-floor-result.png)
 
-As you can see there is something going wrong, the first thing is the blank line after the wall. This happens because the routine that fix the "canvas half pixel" in html5. To fix it, we just need to increase the fixer in the wall drawing function. This avoids that first pixel that will check in the floorcasting is a wall pixel.
+As you can see there is something going wrong, the first thing is the blank line after the wall. This happens because the routine that fix the "canvas half pixel" in html5. To fix it, we just need to increase the fix in the wall drawing function. This avoids that first pixel that will check in the floorcasting is a wall pixel.
 
 ```
 function drawTexture(x, wallHeight, texturePositionX, texture) {

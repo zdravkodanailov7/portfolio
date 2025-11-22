@@ -10,6 +10,7 @@ import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
+import { visit } from "unist-util-visit";
 
 type Metadata = {
   title: string;
@@ -19,6 +20,25 @@ type Metadata = {
   topic?: string;
   topicOrder?: number;
 };
+
+function rehypeVideo() {
+  return (tree: any) => {
+    visit(tree, "element", (node: any) => {
+      if (node.tagName === "img" && node.properties && typeof node.properties.src === 'string') {
+        const url = node.properties.src;
+        if (url.endsWith(".mp4")) {
+          node.tagName = "video";
+          node.properties.width = "100%";
+          node.properties.controls = true;
+          node.properties.loop = true;
+          node.properties.muted = true;
+          node.properties.playsInline = true;
+          node.properties.autoPlay = true;
+        }
+      }
+    });
+  };
+}
 
 function getMDXFiles(dir: string) {
   return fs.readdirSync(dir).filter((file) => path.extname(file) === ".mdx");
@@ -30,6 +50,7 @@ export async function markdownToHTML(markdown: string) {
     .use(remarkGfm)
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
+    .use(rehypeVideo)
     .use(rehypeSlug)
     .use(rehypeCodeGroup, {})
     .use(rehypePrettyCode, {
