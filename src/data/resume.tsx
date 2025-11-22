@@ -152,6 +152,29 @@ export const DATA = {
   ],
   projects: [
     {
+      title: "Raycasting Engine",
+      href: "/projects/raycasting",
+      dates: "Nov 2025",
+      active: true,
+      description:
+        "A JavaScript raycasting engine built from scratch. A technique to create a 3D projection onto a 2D plane, similar to what was used in classic games like Wolfenstein 3D.",
+      technologies: ["JavaScript", "TypeScript", "HTML5 Canvas", "React"],
+      links: [
+        {
+          type: "Source",
+          href: "https://github.com/zdravkodanailov7/raycasting",
+          icon: <Icons.github className="size-3" />,
+        },
+        {
+          type: "Blog",
+          href: "/projects/raycasting",
+          icon: <NotebookIcon className="size-3" />,
+        },
+      ],
+      image: "/raycasting.png",
+      video: "",
+    },
+    {
       title: "Handwritten Digit Recogniser",
       href: "/projects/digit-recogniser",
       dates: "Sep 2025",
@@ -174,6 +197,11 @@ export const DATA = {
           type: "Blog",
           href: "/projects/digit-recogniser",
           icon: <NotebookIcon className="size-3" />,
+        },
+        {
+          type: "Video",
+          href: "https://www.youtube.com/watch?v=uM2hy3j1FBo",
+          icon: <Icons.youtube className="size-3" />,
         },
       ],
       image: "/content/digit-recogniser/digit-recogniser.png",

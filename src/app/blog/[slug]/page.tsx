@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import RaycastingEngine from "@/components/raycasting-engine";
 
 export async function generateStaticParams() {
   const posts = await getBlogPosts();
@@ -108,6 +109,7 @@ export default async function Blog({
             </p>
           </Suspense>
         </div>
+        {post.slug === "raycasting" && <RaycastingEngine />}
         <article
           className="prose dark:prose-invert"
           dangerouslySetInnerHTML={{ __html: post.source }}
