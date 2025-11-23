@@ -1,0 +1,255 @@
+---
+title: "Doubly Linked Lists"
+publishedAt: "2025-11-23"
+topic: "Linked Lists"
+topicOrder: 3
+---
+
+Now so far we've talked about singly linked lists, but there's a slight variation called a doubly linked list, which can also be useful. The main difference as the name implies is that we have two pointers. We have double pointers. We have one pointer for the next node, the same for singly linked lists, but we also have a previous pointer, which is going to point at the previous node in the linked list.
+
+### Structure
+
+So with three nodes, one, two, and three, the next pointers are going to be connected to the next node in the linked list. The previous pointers are going to be connected to the previous node in the linked list. Now the first node does not have any previous pointers, so it's going to be set to null. We can assume the same way how the last node has a next pointer set to null. That's how we know we get to the end of the list, and this is how we know we've gotten to the beginning of the list.
+
+Now just like with singly linked lists, let's assume that we have a head and a tail pointer to the first and last node of our linked list.
+
+### Adding a Node
+
+Now let's say we wanted to add a new node to the end of the linked list. It would be very similar to doing it with a singly linked list, meaning we would take the next pointer of our current tail node and assign it to the list node four. We would also want to set the previous pointer of this node to be at list node three. We would also want to set the previous pointer of list node four to point at list node three, because we want to make sure that this is doubly linked. We want to preserve the properties of our doubly linked list. And then we would take our tail and shift it to the new node that we just inserted.
+
+This is how the code for that operation would look like:
+
+::: code-group labels=[Python, TypeScript]
+```python
+self.tail.next = new_node
+new_node.prev = self.tail
+self.tail = new_node
+```
+```typescript
+this.tail.next = newNode;
+newNode.prev = this.tail;
+this.tail = newNode;
+```
+:::
+
+The one thing to know is the order that we do these operations in is very important. We have to do this operation before we update the tail pointer.
+
+### Removing a Node
+
+So now let's look at removing a node. Let's remove the last node from our list. And it's a little bit easier with a doubly linked list because we're allowed to look backwards. Assuming we only have a pointer to the tail, that's actually all we need. We don't need a pointer to the previous node because from our tail, we can follow the previous pointer and it's going to take us to the previous node. This is really convenient. With a singly linked list, we would have had to start at the beginning and then kept going forward until we got to the node that we wanted to be at.
+
+We would start at the tail, follow the previous pointer. We would be at list node two. We would take the next pointer of it, which is now pointing at list node three, and we would instead point it at null. And it's really that simple. Now we have a linked list of size two.
+
+Technically, this node still exists and its previous pointer is pointing here. But if we take our tail pointer and set it now to be here, as far as we're concerned, this node doesn't exist anymore. Technically, it does, but we have no references to it, so we're never going to see it ever again. And depending on the language we're using, garbage collection might delete this automatically.
+
+And the code for that operation would look something like this:
+
+::: code-group labels=[Python, TypeScript]
+```python
+node2 = self.tail.prev
+node2.next = None
+self.tail = node2
+```
+```typescript
+const node2 = this.tail.prev!;
+node2.next = null;
+this.tail = node2;
+```
+:::
+
+By the way, we did a few operations, but we didn't have to loop through the entire linked list. Regardless of the size of the linked list, this delete last operation is always going to be the same. It's going to be a constant time operation.
+
+### Stacks and Linked Lists
+
+So with doubly linked lists, we can insert a value at the end, and we can remove a value at the end. So we can do both of those in constant time. Doesn't that satisfy the requirements of a stack data structure? Yes, it does. That means that stacks can be implemented also with linked lists, just like they can be with arrays.
+
+But it's a lot less common to implement stacks using linked lists. Because with our original dynamic array, we could pop and push to the end of the array efficiently. But we could also access any arbitrary element of the array. This is a downside of linked lists, whether we're talking about singly linked list or doubly linked list. Because we can't just arbitrarily access the second element or the third element or the seventh element, we have to follow our pointers to do that. That means to access a random element of the linked list. It would be an O(n) time operation.
+
+So if that's the case, it's probably better to use a dynamic array if we're talking about stacks because we get extra functionality that we lose when we use linked lists.
+
+### Complexity Review
+
+So let's wrap up by reviewing the time complexity of linked lists and compare that to arrays. So remember accessing the Ith element of an array, accessing any element at any arbitrary index is a constant time operation with arrays. Inserting or removing at the end is also efficient. We can push and pop efficiently. But inserting into the middle or removing from the middle is going to be a linear time operation because we might have to shift all of the elements over in either direction.
+
+Now with a linked list, accessing any element in the linked list is not necessarily going to be efficient. I mean, of course, if we already have a pointer to this node, for example, it will be a constant time operation. But that's not always going to be the case. If we had a really big linked list and we wanted to access any element in the linked list, in the worst case, we would have to start at the beginning of the list and then keep incrementing, keep iterating through the list until we got to that element. So linked lists are different. We can't just randomly access any element. The worst case time complexity is O(n).
+
+But if there's a downside to linked lists, we can also expect that there's going to be an upside to them as well. Because that's the whole point of data structures. Some are better at certain things. Now inserting and removing at the end is the same as arrays. It's a constant time operation. We talked about that earlier.
+
+Inserting and removing from the middle, though, is a constant time operation. Remember, if we have a linked list, if we want to remove the middle element, we don't have to now shift everything over. All we have to do to remove an element is take the pointer. It's currently pointing at that. But now we want it to point at the next one. That's all we have to do to remove from the middle. Inserting works very similar to that. So yes, it's efficient to do that with linked lists.
+
+But the caveat, and it's a really big one, for us to remove any random element: first, we have to arrive at that element. We need a pointer to the element before we can remove it. So in most cases, we're going to have to start at the beginning, keep iterating until we find the element that we want to remove and then remove it. So while doing the insertion or removal is efficient, usually we have to iterate through the linked list before we can do that. So in most cases, it's going to be a linear time operation.
+
+So we can see that linked lists do have a slight benefit compared to arrays. But I'll be honest and say that arrays are much more common and much more useful for problem solving. Being able to access the Ith element, any arbitrary element, very efficiently is really, really important. Much more than something like this, especially when most of the time we do this, we're not actually going to be able to do it in constant time. We're going to have to iterate through the linked list.
+
+### Implementation
+
+Full code with tests in the [git repo](https://github.com/zdravkodanailov7/dsa/tree/main/doubly_linked_list).
+
+::: code-group labels=[Python, TypeScript]
+```python
+class ListNode:
+    def __init__(self, value):
+        self.value = value
+        self.next = None
+        self.prev = None
+
+class DoublyLinkedList:
+    def __init__(self):
+        # Init the list with 'dummy' head and tail nodes which makes 
+        # edge cases for insert & remove easier.
+        self.head = ListNode(-1)
+        self.tail = ListNode(-1)
+        self.head.next = self.tail
+        self.tail.prev = self.head
+        self._length = 0
+    
+    def insert_front(self, value):
+        new_node = ListNode(value)
+        new_node.prev = self.head
+        new_node.next = self.head.next
+        self.head.next.prev = new_node
+        self.head.next = new_node
+        self._length += 1
+    
+    def insert_end(self, value):
+        new_node = ListNode(value)
+        new_node.next = self.tail
+        new_node.prev = self.tail.prev
+        self.tail.prev.next = new_node
+        self.tail.prev = new_node
+        self._length += 1
+    
+    def remove_front(self):
+        if self.is_empty():
+            return
+        self.head.next.next.prev = self.head
+        self.head.next = self.head.next.next
+        self._length -= 1
+    
+    def remove_end(self):
+        if self.is_empty():
+            return
+        self.tail.prev.prev.next = self.tail
+        self.tail.prev = self.tail.prev.prev
+        self._length -= 1
+    
+    def remove(self, value):
+        current = self.head.next
+        while current != self.tail:
+            if current.value == value:
+                current.prev.next = current.next
+                current.next.prev = current.prev
+                self._length -= 1
+                return
+            current = current.next
+    
+    def is_empty(self):
+        return self._length == 0
+    
+    def get_length(self):
+        return self._length
+    
+    def print_list(self):
+        current = self.head.next
+        while current != self.tail:
+            print(current.value, end=" -> ")
+            current = current.next
+        print("None")
+```
+
+```typescript
+interface DoublyListNode<T> {
+    value: T;
+    next: DoublyListNode<T> | null;
+    prev: DoublyListNode<T> | null;
+}
+
+export class DoublyLinkedList<T> {
+    head: DoublyListNode<T>;
+    tail: DoublyListNode<T>;
+    private length: number;
+
+    constructor() {
+        // Init the list with 'dummy' head and tail nodes which makes 
+        // edge cases for insert & remove easier.
+        this.head = { value: -1 as T, next: null, prev: null };
+        this.tail = { value: -1 as T, next: null, prev: null };
+        this.head.next = this.tail;
+        this.tail.prev = this.head;
+        this.length = 0;
+    }
+
+    insertFront(value: T): void {
+        const newNode: DoublyListNode<T> = {
+            value,
+            prev: this.head,
+            next: this.head.next
+        };
+        this.head.next!.prev = newNode;
+        this.head.next = newNode;
+        this.length++;
+    }
+
+    insertEnd(value: T): void {
+        const newNode: DoublyListNode<T> = {
+            value,
+            next: this.tail,
+            prev: this.tail.prev
+        };
+        this.tail.prev!.next = newNode;
+        this.tail.prev = newNode;
+        this.length++;
+    }
+
+    removeFront(): void {
+        if (this.isEmpty()) {
+            return;
+        }
+        this.head.next!.next!.prev = this.head;
+        this.head.next = this.head.next!.next;
+        this.length--;
+    }
+
+    removeEnd(): void {
+        if (this.isEmpty()) {
+            return;
+        }
+        this.tail.prev!.prev!.next = this.tail;
+        this.tail.prev = this.tail.prev!.prev;
+        this.length--;
+    }
+
+    remove(value: T): void {
+        let current = this.head.next;
+        while (current !== this.tail) {
+            if (current!.value === value) {
+                current!.prev!.next = current!.next;
+                current!.next!.prev = current!.prev;
+                this.length--;
+                return;
+            }
+            current = current!.next;
+        }
+    }
+
+    isEmpty(): boolean {
+        return this.length === 0;
+    }
+
+    getLength(): number {
+        return this.length;
+    }
+
+    printList(): void {
+        let current = this.head.next;
+        let output = "";
+        while (current !== this.tail) {
+            output += `${current!.value} -> `;
+            current = current!.next;
+        }
+        output += "None";
+        console.log(output);
+    }
+}
+```
+:::
