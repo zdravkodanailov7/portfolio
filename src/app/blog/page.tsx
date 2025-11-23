@@ -2,6 +2,7 @@ import BlurFade from "@/components/magicui/blur-fade";
 import { getBlogPosts } from "@/data/blog";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
+import { ClearMdxRefreshFlags } from "@/components/mdx-refresh";
 
 export const metadata = {
   title: "Blog",
@@ -15,6 +16,7 @@ export default async function BlogPage() {
 
   return (
     <section>
+      <ClearMdxRefreshFlags />
       <BlurFade delay={BLUR_FADE_DELAY}>
         <h1 className="font-medium text-2xl mb-8 tracking-tighter">blog</h1>
       </BlurFade>

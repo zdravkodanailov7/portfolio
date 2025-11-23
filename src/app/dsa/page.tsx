@@ -2,6 +2,7 @@ import BlurFade from "@/components/magicui/blur-fade";
 import { getDsaPosts } from "@/data/dsa";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
+import { ClearMdxRefreshFlags } from "@/components/mdx-refresh";
 
 export const metadata = {
   title: "DSA",
@@ -15,6 +16,7 @@ export default async function DsaPage() {
 
   return (
     <section>
+      <ClearMdxRefreshFlags />
       <BlurFade delay={BLUR_FADE_DELAY} className="mb-8">
         <h1 className="font-medium text-2xl mb-8 tracking-tighter">data structures and algorithms</h1>
         <h3 className="font-medium text-xl mb-4 tracking-tighter">What is a data structure?</h3>

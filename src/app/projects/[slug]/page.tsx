@@ -6,6 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import RaycastingEngine from "@/components/raycasting-engine";
+import MdxRefresh from "@/components/mdx-refresh";
 
 export async function generateStaticParams() {
     const posts = await getProjectPosts();
@@ -68,6 +69,7 @@ export default async function Project({
 
     return (
         <>
+            <MdxRefresh />
             <Link
                 href="/projects"
                 className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-neutral-600 transition hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
