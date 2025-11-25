@@ -520,6 +520,7 @@ export default function RaycastingEngine() {
                 canvas.removeEventListener('click', handleFocus);
             }
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Handle focus/blur
@@ -552,10 +553,13 @@ export default function RaycastingEngine() {
                 Controls: W, A, S, D to move
             </div>
 
-            {/* Hidden assets */}
+            {/* Hidden assets - using img tags for canvas texture loading */}
             <div style={{ display: 'none' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img ref={textureRef} src={TEXTURE_WALL} alt="wall" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img ref={floorRef} src={TEXTURE_FLOOR} alt="floor" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img ref={bgRef} src={TEXTURE_BG} alt="bg" />
             </div>
         </div>

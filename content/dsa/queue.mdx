@@ -1,0 +1,209 @@
+---
+title: "Queue"
+publishedAt: "2025-11-25"
+topic: "Linked Lists"
+topicOrder: 4
+---
+
+Queues are another fundamental data structure, similar to stacks but with one key difference in how elements are removed. While stacks follow the Last-In-First-Out principle, queues work on a First-In-First-Out basis, often abbreviated as FIFO.
+
+### Core Operations
+
+A queue supports two main operations:
+
+- **enqueue**: adds a value to the back of the queue
+- **dequeue**: removes and returns the value from the front
+
+When we enqueue an element, it goes to the end of the queue, which is actually the same idea as pushing onto a stack. The difference comes when we need to remove something. Instead of taking from the end, we remove from the beginning. This means the first element we added will be the first one we take out, hence the name first-in-first-out.
+
+Think about a line at a coffee shop. The person who arrived first gets served first, and new customers join at the back. That's exactly how a queue works.
+
+### Why Linked Lists Work Best
+
+We want both enqueue and dequeue to run in constant time, and this is where arrays fall short. Removing from the beginning of an array means shifting every other element over by one position, which gives us O(n) complexity. That's not ideal for a data structure we want to be efficient.
+
+With a linked list, we can achieve O(1) for both operations. Let me walk you through how this works.
+
+### Building the Queue
+
+Suppose we start with an empty queue. We maintain two pointers, a head and a tail, which are both initially null since we have nothing yet.
+
+When we add our first element, say "red", we create a new node and both head and tail point to it. Our queue now has one element.
+
+::: code-group labels=[Python, TypeScript]
+```python
+new_node = ListNode(value)
+self.head = new_node
+self.tail = new_node
+```
+```typescript
+const newNode: ListNode<T> = { value, next: null };
+this.head = newNode;
+this.tail = newNode;
+```
+:::
+
+Now let's add another element, "blue". We take the next pointer of our current tail node and point it to the new node. Then we update the tail to point to this new node. The head stays where it is because we only add to the back.
+
+::: code-group labels=[Python, TypeScript]
+```python
+new_node = ListNode(value)
+self.tail.next = new_node
+self.tail = new_node
+```
+```typescript
+const newNode: ListNode<T> = { value, next: null };
+this.tail!.next = newNode;
+this.tail = newNode;
+```
+:::
+
+### Removing Elements
+
+Dequeuing is beautifully simple. We just move our head pointer to the next node in the list. If head is pointing at "red" and head.next points to "blue", we set head to head.next and now "blue" is at the front.
+
+::: code-group labels=[Python, TypeScript]
+```python
+value = self.head.value
+self.head = self.head.next
+return value
+```
+```typescript
+const value = this.head!.value;
+this.head = this.head!.next;
+return value;
+```
+:::
+
+The old head node might still exist in memory, but we have no reference to it anymore, so as far as we're concerned it's gone. Most languages will clean this up through garbage collection.
+
+### Why Not Arrays?
+
+You could technically implement a queue with arrays, but it gets complicated. Either you accept O(n) dequeue operations because of the shifting problem, or you implement a circular buffer which adds a lot of complexity. Linked lists give us a clean, simple solution where both operations are constant time.
+
+### Complexity Recap
+
+| Operation | Time | Notes |
+| --- | --- | --- |
+| enqueue | O(1) | Add to tail |
+| dequeue | O(1) | Remove from head |
+| peek | O(1) | Read head value |
+
+Queues come up everywhere in programming. They're used in breadth-first search, task scheduling, print spoolers, message passing between processes, and handling asynchronous events. Any time you need to process things in the order they arrived, a queue is the right tool.
+
+### Implementation
+
+Full code with tests in the [git repo](https://github.com/zdravkodanailov7/dsa/tree/main/queue).
+
+::: code-group labels=[Python, TypeScript]
+```python
+class ListNode:
+    def __init__(self, value):
+        self.value = value
+        self.next = None
+
+class Queue:
+    def __init__(self):
+        self.head = None
+        self.tail = None
+        self._length = 0
+    
+    def enqueue(self, value):
+        new_node = ListNode(value)
+        if self.is_empty():
+            self.head = new_node
+            self.tail = new_node
+        else:
+            self.tail.next = new_node
+            self.tail = new_node
+        self._length += 1
+    
+    def dequeue(self):
+        if self.is_empty():
+            return None
+        value = self.head.value
+        self.head = self.head.next
+        if self.head is None:
+            self.tail = None
+        self._length -= 1
+        return value
+    
+    def peek(self):
+        return self.head.value if self.head else None
+    
+    def is_empty(self):
+        return self._length == 0
+    
+    def size(self):
+        return self._length
+    
+    def print_queue(self):
+        current = self.head
+        while current:
+            print(current.value, end=" -> ")
+            current = current.next
+        print("None")
+```
+
+```typescript
+interface ListNode<T> {
+    value: T;
+    next: ListNode<T> | null;
+}
+
+export class Queue<T> {
+    private head: ListNode<T> | null = null;
+    private tail: ListNode<T> | null = null;
+    private length: number = 0;
+
+    enqueue(value: T): void {
+        const newNode: ListNode<T> = { value, next: null };
+        if (this.isEmpty()) {
+            this.head = newNode;
+            this.tail = newNode;
+        } else {
+            this.tail!.next = newNode;
+            this.tail = newNode;
+        }
+        this.length++;
+    }
+
+    dequeue(): T | null {
+        if (this.isEmpty()) {
+            return null;
+        }
+        const value = this.head!.value;
+        this.head = this.head!.next;
+        if (this.head === null) {
+            this.tail = null;
+        }
+        this.length--;
+        return value;
+    }
+
+    peek(): T | null {
+        return this.head ? this.head.value : null;
+    }
+
+    isEmpty(): boolean {
+        return this.length === 0;
+    }
+
+    size(): number {
+        return this.length;
+    }
+
+    printQueue(): void {
+        let current = this.head;
+        let output = "";
+        while (current) {
+            output += `${current.value} -> `;
+            current = current.next;
+        }
+        output += "None";
+        console.log(output);
+    }
+}
+```
+:::
+
