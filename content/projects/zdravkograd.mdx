@@ -1,0 +1,955 @@
+---
+title: "ZdravkoGrad"
+publishedAt: "2025-11-29"
+summary: "A scalar valued autograd engine and a neural net library on top of it with PyTorch-like API."
+---
+
+We will start with a blank jupyter notebook and we will define and train a neural net while showcasing everything that goes on under the hood. So we will be building this autograd (short for automatic gradient, hence the name zdravkograd) and basically it implements backpropogation. Backpropogration is essentially this algorithm that allows you to efficiently evaluate the gradient of some kind of loss function with respect to the weights of a neural network. This will allow us to iteratively tune the weights of this neural network to minimise the loss function and therefore improve the accuracy of the network. Backpropogation is the mathematic core of any modern deep neural network library, like PyTorch for example.
+
+Neural networks are just a mathematical expression, they take input data as an input as well as the weight data as an input and the output of this mathematical expression are the network's predictions of the neural net (or the loss function).
+
+Running through this project is a much better way to understand and learn about backpropogration, the chain rule and training neural networks rather than going straight into using something like PyTorch, it breaks the unnecessary things out of PyTorch like Tensors and will give me a much better understanding of what really happens in terms of how a neural net is trained at the most fundamental level.
+
+This project is basically all you need in order to train neural networks, everything else added on top or after this is purely just for efficiency. At the end we will end up with essentially two python files: engine.py (that knows nothing about neural nets really) and nn.py. nn.py is the neural network library built on top of the autograd engine and its quite simple actually. We will be defining what a Neuron is and then what a Layer of neurons is and then define what a multilayer perceptron (MLP) which is just a sequence of layers of neurons. Broken down that's all you need to understand neural network training, everything else is just efficiency. Ok so let's start.
+
+The first thing we need to understand very well is what a derivative is and what information it gives you. So let's start with some basic imports that we will need throughout this whole project:
+
+```python
+import math
+import numpy as np
+import matplotlib.pyplot as plt
+%matplotlib inline
+```
+
+And now lets also define this scalar value function f(x):
+
+```python
+def f(x):
+    return 3*x**2 - 4*x + 5
+```
+
+
+We can now call this function with say 3, `f(3.0)` and we will get `20.0` back. 
+Now we can also plot this function to get a sense for its shape and given its mathematical expression you should be able to tell that its going to be a parabola, its quadratic.
+
+So lets just create a set of scalar values that we can feed in using arage from negative 5 to 5 in steps of 0.25: `xs = np.arange(-5, 5, 0.25)`, and if we print that out we now have:
+
+```python
+array([-5.  , -4.75, -4.5 , -4.25, -4.  , -3.75, -3.5 , -3.25, -3.  ,
+       -2.75, -2.5 , -2.25, -2.  , -1.75, -1.5 , -1.25, -1.  , -0.75,
+       -0.5 , -0.25,  0.  ,  0.25,  0.5 ,  0.75,  1.  ,  1.25,  1.5 ,
+        1.75,  2.  ,  2.25,  2.5 ,  2.75,  3.  ,  3.25,  3.5 ,  3.75,
+        4.  ,  4.25,  4.5 ,  4.75])
+```
+
+Now we can call our function on these values with `ys = f(xs)`, and the `ys` look like this:
+
+```python
+array([100.    ,  91.6875,  83.75  ,  76.1875,  69.    ,  62.1875,
+        55.75  ,  49.6875,  44.    ,  38.6875,  33.75  ,  29.1875,
+        25.    ,  21.1875,  17.75  ,  14.6875,  12.    ,   9.6875,
+         7.75  ,   6.1875,   5.    ,   4.1875,   3.75  ,   3.6875,
+         4.    ,   4.6875,   5.75  ,   7.1875,   9.    ,  11.1875,
+        13.75  ,  16.6875,  20.    ,  23.6875,  27.75  ,  32.1875,
+        37.    ,  42.1875,  47.75  ,  53.6875])
+```
+
+We can now plot this using matplotlib using `plt.plot(xs, ys)` and we will get this:
+
+![xs-ys](/content/zdravkograd/xs-ys.png)
+
+Previously we inputted 3.0 and we got 20.0 back which matches with our graph.
+
+So now, let's think about what is the derivative of this function at any single input x? I hope this is something you know because its really easy, you should have learnt this in math class. Here we are not going to go and do this whole math stuff but you should know it. Instead lets look at the definition of what a derivative really is and what does it tell you about the function.
+
+![derivative](/content/zdravkograd/derivative.png)
+
+You should recognise this image, it tells us that a derivative is the limit as h goes to 0 of f(a + h) - f(a) all over h. This tells us that if you slightly bump up a (at whatever point you are interested in) by some small amount h how does the function respond, with what sensitivity does it respond, what is the slope at that point? Does the function go up or does it go down and by how much? And that is the slope of that function at that point.
+
+So now if we use that in our code, lets take a very small amount of h, `h = 0.001`, and again lets say we are interested in the point at `x = 3.0` and we pass it in`f(x)`, which we know is `20`. So now if we slightly nudge the point by h, `f(x + h)`, so we are slightly nudging x in a positive direction, how will the function respond? If we go back and look at the graph we will expect `f(x + h)` to be greater of course. And if we calculate that:
+
+```python
+h = 0.001
+x = 3.0
+f(x + h)
+```
+
+We get: `20.014003000000002`, which is what we expected, its slightly more positive, and now by how much is telling you the strength of that slope. And if we do:
+
+```python
+h = 0.001
+x = 3.0
+f(x + h) - f(x)
+```
+
+We can get that number showing us by how much the function responded: `0.01400300000000243`, now we just have to normalise by the *run* (remember the rise over the run), so lets divide it all by `h`:
+
+```python
+h = 0.001
+x = 3.0
+(f(x + h) - f(x)) / h
+```
+
+That gives us `14.00300000000243`, this is the numerical approximation of the slope (because we have to make `h` very very small to converge to the exact amount). We do have to be careful here though because if you do too many zeros:
+
+```python
+h = 0.0000000000000001
+x = 3.0
+(f(x + h) - f(x)) / h
+```
+
+At some point we will get the incorrect answer of `0.0` because we are using floating point arithmetic and the representations of all these numbers in computer memory is finite and at some point we get into this trouble.
+
+Ok, so we have found that at `3.0` the slope is `14`. And you can prove that by taking our expression, 3x^2 - 4x + 5 and differentiating it to get 6x - 4 and if you plug 3 in you get: 18 - 4 which is 14, nice.
+
+Now lets take a look at a bit more of a complex case.
+
+```python
+a = 2.0
+b = -3.0
+c = 10.0
+d = a*b + c
+print(d)
+```
+
+We now have `d` that is a function of three scalar inputs `a`, `b`, and `c`. If we print d now we get `4`. Let's now look at the derivative of `d` with respect to a, b and c and then think through what this derivative is telling us. To do this again we will have some very small value of h: `h = 0.0001` and we will fix these inputs at the numbers you see above. So this is the point a, b, c where we will be evaluating the derivative of `d` with respect to all a, b and c.
+
+```python
+h = 0.0001
+
+a = 2.0
+b = -3.0
+c = 10.0
+
+d1 = a*b + c
+a += h
+d2 = a*b + c
+
+print('d1 = ', d1)
+print('d2 = ', d2)
+print('slope = ', (d2 - d1) / h)
+```
+
+Now if we run this what do we expect to see, well we know that d1 is 4.0, in d2 we are bumping a up by h. So if we just think about this a little, what do we expect d2 to be? a here will now be slightly more positive but b is a negative number so that means that we will be adding less to d because it a*b will be a lower number. So we are expecting d2 to go lower. If I run this without the last print we get
+
+```python
+d1 =  4.0
+d2 =  3.999699999999999
+```
+
+Yeah, ok, as we expected, we went from 4 to 3.999699999999999. This tells us that the slope will be negative, if I uncomment that and run it all again lets confirm this.
+
+```python
+d1 =  4.0
+d2 =  3.999699999999999
+slope =  -3.000000000010772
+```
+
+Nice, and we can also check this by doing the actual differentiation, so if we differentiate our function with respect to a we will simply get b and our value of b is -3.0, which is the answer we got above, perfect.
+
+So now if we do this with b instead of a:
+
+```python
+h = 0.0001
+
+a = 2.0
+b = -3.0
+c = 10.0
+
+d1 = a*b + c
+b += h
+d2 = a*b + c
+
+print('d1 = ', d1)
+print('d2 = ', d2)
+print('slope = ', (d2 - d1) / h)
+```
+
+if we bump b by a little bit we will get what the influence of b is on the output d. It might not surprise you but yes this should be:
+
+```python
+d1 =  4.0
+d2 =  4.0002
+slope =  2.0000000000042206
+```
+
+now if we do the same thing with c:
+
+```python
+h = 0.0001
+
+a = 2.0
+b = -3.0
+c = 10.0
+
+d1 = a*b + c
+c += h
+d2 = a*b + c
+
+print('d1 = ', d1)
+print('d2 = ', d2)
+print('slope = ', (d2 - d1) / h)
+```
+
+then a*b is unaffected and now c becomes slightly bit higher, what does that do to the function? Well it makes it slightly bit higher because we are simply adding c, and it makes it slightly bit higher by the exact same amount that we added to c. so that tells you that the slope is 1, that will be the rate at which d will increase as we scale c.
+
+```python
+d1 =  4.0
+d2 =  4.0001
+slope =  0.9999999999976694
+```
+
+Ok, so we now have some intuitive sense of what this derivative is telling us about the function, and we would like to move to neural networks. Neural networks will be pretty massive mathematical expressions so we will need some data structures that maintain these expressions, so lets start building those out now.
+
+We will build out this `Value` object:
+
+```python
+class Value:
+
+    def __init__(self, data):
+        self.data = data
+
+    def __repr__(self):
+        return f"Value(data={self.data})"
+```
+
+So, class `Value` takes a single scalar value that it wraps and keeps track of, for example if we now do:
+
+```python
+a = Value(2.0)
+a
+```
+
+like this we can look at its content
+
+```python
+Value(data=2.0)
+```
+
+python will internally use the `__repr__` function to return this string above. Now what if we have two values:
+
+```python
+a = Value(2.0)
+b = Value(-3.0)
+a, b
+```
+which outputs
+
+```python
+(Value(data=2.0), Value(data=-3.0))
+```
+
+ok, that works, but what if we try to do `a + b`?
+
+```python
+---------------------------------------------------------------------------
+TypeError                                 Traceback (most recent call last)
+Cell In[21], line 11
+      9 a = Value(2.0)
+     10 b = Value(-3.0)
+---> 11 a + b
+
+TypeError: unsupported operand type(s) for +: 'Value' and 'Value'
+```
+
+Currently we get this error because python doesn't know how to add two `Value` objects... so we have to tell it!
+
+```python
+class Value:
+
+    def __init__(self, data):
+        self.data = data
+
+    def __repr__(self):
+        return f"Value(data={self.data})"
+
+    def __add__(self, other):
+        out = Value(self.data + other.data)
+        return out
+```
+
+In python we have to use these special double underscore methods to define these operators for our object. So if you use the `+` operator in python, it will internally call `a.__add__(b)`, and so b will be the other and self will be a. Inside our one we will simply be returning a new `Value` object which wraps the + of their data attributes. Keep in mind here that `.data` is the actual number we are storing in the `Value` object, as defined in the `__init__` method at the top. So now a + b should work and if we re run it all we get:
+
+```python
+Value(data=-1.0)
+```
+
+perfect, now lets implement multiply so we can recreate our d expression, this is of course very similar, just adding the `__mul__` method to our function:
+
+```python
+class Value:
+
+    def __init__(self, data):
+        self.data = data
+
+    def __repr__(self):
+        return f"Value(data={self.data})"
+
+    def __add__(self, other):
+        out = Value(self.data + other.data)
+        return out
+
+    def __mul__(self, other):
+        out =  Value(self.data * other.data)
+        return out
+```
+
+So now we can rewrite our `d` expression using our new `Value` class:
+
+```python
+a = Value(2.0)
+b = Value(-3.0)
+c = Value(10.0)
+d = a * b + c
+print(d)
+```
+
+and now it works as if we run this we get:
+
+```python
+Value(data=4.0)
+```
+
+correct.
+
+Now what we are missing is this connective tissue of this expression, remember we need to keep these expression graphs so we can keep track of what values produce other values. We are going to start by introducing this new variable called `_children` in the `Value` object which will be an empty tuple by default. In the class however we will keep a slightly different variable called `_prev` which will be those `_children` in a set.
+
+```python
+class Value:
+
+    def __init__(self, data, _children=()):
+        self.data = data
+        self._prev = set(_children)
+
+    def __repr__(self):
+        return f"Value(data={self.data})"
+
+    def __add__(self, other):
+        out = Value(self.data + other.data)
+        return out
+
+    def __mul__(self, other):
+        out =  Value(self.data * other.data)
+        return out
+```
+
+Now when we are creating a `Value` through addition or multiplication we now need to store the children of this new value.
+
+```python
+class Value:
+
+    def __init__(self, data, _children=()):
+        self.data = data
+        self._prev = set(_children)
+
+    def __repr__(self):
+        return f"Value(data={self.data})"
+
+    def __add__(self, other):
+        out = Value(self.data + other.data, (self, other))
+        return out
+
+    def __mul__(self, other):
+        out =  Value(self.data * other.data, (self, other))
+        return out
+```
+
+This allows us to do `d._prev` which allows us to see the children of this `Value`
+
+```python
+{Value(data=-6.0), Value(data=10.0)}
+```
+
+Ok now we know the children of every single `Value` but we still don't know what operation created this `Value`... So we need one more variable which we will call `_op` which by default is an empty string for leaf nodes.
+
+```python
+class Value:
+
+    def __init__(self, data, _children=(), _op=''):
+        self.data = data
+        self._prev = set(_children)
+        self._op = _op
+
+    def __repr__(self):
+        return f"Value(data={self.data})"
+
+    def __add__(self, other):
+        out = Value(self.data + other.data, (self, other), '+')
+        return out
+
+    def __mul__(self, other):
+        out =  Value(self.data * other.data, (self, other), '*')
+        return out
+```
+
+So now we can also print `d._op` which simply returns: `+`.
+
+Now because these expressions are about to get quite a bit larger we are going to need a way to visualise these expressions that we are building out. For this I am going to use this code below to help us visualise these expression graphs.
+
+```python
+from graphviz import Digraph
+
+def trace(root):
+  # builds a set of all nodes and edges in a graph
+  nodes, edges = set(), set()
+  def build(v):
+    if v not in nodes:
+      nodes.add(v)
+      for child in v._prev:
+        edges.add((child, v))
+        build(child)
+  build(root)
+  return nodes, edges
+
+def draw_dot(root):
+  dot = Digraph(format='svg', graph_attr={'rankdir': 'LR'}) # LR = left to right
+  
+  nodes, edges = trace(root)
+  for n in nodes:
+    uid = str(id(n))
+    # for any value in the graph, create a rectangular ('record') node for it
+    dot.node(name = uid, label = "{ %s | data %.4f | grad %.4f }" % (n.label, n.data, n.grad), shape='record')
+    if n._op:
+      # if this value is a result of some operation, create an op node for it
+      dot.node(name = uid + n._op, label = n._op)
+      # and connect this node to it
+      dot.edge(uid + n._op, uid)
+
+  for n1, n2 in edges:
+    # connect n1 to the op node of n2
+    dot.edge(str(id(n1)), str(id(n2)) + n2._op)
+
+  return dot
+```
+
+Essentially we are creating this new function `draw_dot()` that we can call on some root node. So if we call `draw_dot(d)` on our d node, we get this:
+
+![draw-dot-d](/content/zdravkograd/draw-dot-d.svg)
+
+So we just build out this graph using graphviz's API (which is an open sourced software), its quite simle really. The `trace()` function enumerates all of the nodes and edges of the graph creating a set of all the nodes and edges. Then we iterate over these nodes and create special node objects for them using `dot.node` and then we connect them using `dot.edge`. We also add these *fake* nodes which are the operation nodes (like the plus node you see above), so just keep that in mind that only `Value` object nodes are the rectangle ones.
+
+Let's also add some labels to these graphs so we know which variables are where. For this we will slightly tweak the `Value` class to add a new label attribute and we will also fill that attribute out at the bottom when creating our function:
+
+```python
+class Value:
+
+    def __init__(self, data, _children=(), _op='', label=''):
+        self.data = data
+        self._prev = set(_children)
+        self._op = _op
+        self.label = label
+
+    def __repr__(self):
+        return f"Value(data={self.data})"
+
+    def __add__(self, other):
+        out = Value(self.data + other.data, (self, other), '+')
+        return out
+
+    def __mul__(self, other):
+        out =  Value(self.data * other.data, (self, other), '*')
+        return out
+
+a = Value(2.0, label='a')
+b = Value(-3.0, label='b')
+c = Value(10.0, label='c')
+e = a * b ; e.label = 'e'
+d = e + c ; d.label = 'd'
+```
+
+Ok that doesn't do much right now because we need to also update the graphviz code to actually use this label in the visualisation so lets add that label in before the data like this:
+
+```python
+from graphviz import Digraph
+
+def trace(root):
+  # builds a set of all nodes and edges in a graph
+  nodes, edges = set(), set()
+  def build(v):
+    if v not in nodes:
+      nodes.add(v)
+      for child in v._prev:
+        edges.add((child, v))
+        build(child)
+  build(root)
+  return nodes, edges
+
+def draw_dot(root):
+  dot = Digraph(format='svg', graph_attr={'rankdir': 'LR'}) # LR = left to right
+  
+  nodes, edges = trace(root)
+  for n in nodes:
+    uid = str(id(n))
+    # for any value in the graph, create a rectangular ('record') node for it
+    dot.node(name = uid, label = "{ %s | data %.4f }" % (n.label, n.data), shape='record')
+    if n._op:
+      # if this value is a result of some operation, create an op node for it
+      dot.node(name = uid + n._op, label = n._op)
+      # and connect this node to it
+      dot.edge(uid + n._op, uid)
+
+  for n1, n2 in edges:
+    # connect n1 to the op node of n2
+    dot.edge(str(id(n1)), str(id(n2)) + n2._op)
+
+  return dot
+```
+
+Now if we run it we can see the labels.
+
+![draw-dot-d-label](/content/zdravkograd/draw-dot-d-label.svg)
+
+Now let's make this expression just one layer deeper, so `d` will not be the final output node, instead after `d` we are going to create a new `Value` object called `f`. Finally we are giong to create the last one called `L` which will be `d * f`, also making sure we add the label onto that one too.
+
+```python
+a = Value(2.0, label='a')
+b = Value(-3.0, label='b')
+c = Value(10.0, label='c')
+e = a * b ; e.label = 'e'
+d = e + c ; d.label = 'd'
+f = Value(-2.0, label='f')
+L = d * f ; L.label = 'L'
+```
+
+Visualising this, again with `draw_dot(L)`, we get:
+
+![draw-dot-L](/content/zdravkograd/draw-dot-L.svg)
+
+Recap:
+So far we have been able to build out these mathematical expressions with plus and times only so far, they are scalar valued and we can do this forward pass and build out this mathematical expression. So we have multiple inputs here `a`, `b`, `c` and `f`, that go into this mathematical expression and produce a single outout `L`. Using graphviz we are also able to visualise the forward pass, for this one the output of the forward pass is -8.0. 
+
+Next we would like to do backpropogation, in backprop we are going to start at the end and we are going to reverse and calculate the gradient along all the intermediate values. All we are really going to do is compute the derivative of that node with respect to `L`.
+
+First let's update the `Value` class and create a variable to keep track of the derivative of `L` with respect to that value in that node. We will call this variable `grad` and it will be initialised at `0.0`, remember that 0 essentially means no effect. This is because at initialisation we are going to assume that every value does not affect the output.
+
+```python
+def __init__(self, data, _children=(), _op='', label=''):
+        self.data = data
+        self.grad = 0.0
+        self._prev = set(_children)
+        self._op = _op
+        self.label = label
+```
+
+Now that we have `grad` we are going to be able to visualise it also in our graph, let's put it after the `data` value like this:
+
+```python
+dot.node(name = uid, label = "{ %s | data %.4f | grad %.4f }" % (n.label, n.data, n.grad), shape='record')
+```
+
+If we visualise `L` now we can see our `grad` values:
+
+![draw-dot-grad](/content/zdravkograd/draw-dot-grad.svg)
+
+Now let's fill in these gradients by doing backprop manually. First we are interested to fill in the `grad` of `L` of course since we start from the end of the graph. So what is the derivative of L with respect to L? In other words if I change L by a tiny amount h, how much does L change? Well it changes by h of course, so its proportional and therefore the derivative will be 1. So if we fill that in by setting `L.grad = 1.0` and rerun our visualisation we get:
+
+![draw-dot-L-1.svg](/content/zdravkograd/draw-dot-L-1.svg)
+
+Continuing the backprop let's figure out the derivatives of L with respect to d and f as they are next up in the graph. Let's do d first.
+
+So we have `L = d * f` and we would like to know what is `dL / dd`. Doing this really simple derivative we get that the answer is simply `f`. We can also derive this using the definition of a derivative: `(f(x + h) - f(x)) / h` taking also the limit of h as it goes to zero. Because we have `L = d * f` then increasing d by h would give us the output of `((d+h)*f - d*f) / h`, we can now expand this out to get `(d*f + h*f - d*f) / h`, then the df - df cancel out so we are left with `hf / h` which is `f`.
+
+So what we have now is that `d.grad` is just the value of `f` which is `-2.0` and `f.grad` is just the value of d which is `4.0`. Let's set those manually and rerun our visualisation to see them filled out.
+
+![draw-dot-d-f.svg](/content/zdravkograd/draw-dot-d-f.svg)
+
+Next up is the most important thing to understand about backprop. We need to derive `dL / dc`, in other words the derivative of `L` with respect to `c`. Now here's the problem, how do we do this? Well we know the derivative of dL by dc, we know the derivative of L with respect to d, so we know how L is sensitive to d, but how is L sensitive to c? So if we wiggle c how does that impact L through d?
+
+Let's first take a look at how c impacts d, so what is `dd / dc`? We know that `d = c + e` so we need to differentiate this by c. This is another super easy differentiation to do which gives us simply 1.0. By symmetry also `dd / de` will also be 1.0 as well. So basically the local derivative of a sum expression is very simply as it is just 1.0.
+
+Now we know how d impacts L as well as how c impacts d, so how do we put that information together to figure out how c impacts L? The answer of course is the **chain rule**.
+
+To recap the chain rule: if a variable z depends on a variable y which itself depends on a variable x, then z depends on x as well obviously through the intermediate variable y. And in this case the chain rule is expressed as: 
+
+![chain-rule.png](/content/zdravkograd/chain-rule.png)
+
+An easy analogy you can use to help you understand this better is: If a car travels twice as fast as a bicycle and the bicycle is four times as fast as a walking man, then the car travels 2 x 4 = 8 times as fast as a walking man.
+
+This tells us that the correct thing to do here is to multiply. We are taking these intermediary rates of change and we are multiplying them together.
+
+So if we use this now to derive dL / dc, well if that is what we want, let't look at what we have. We have `dL / dd = -2.0` and `dd / dc = 1.0` (1.0 because this is a plus node). So the chain rule tells us to multiply them to figure out `dL / dc = -2.0 * 1.0 = -2.0`. So we basically we just copy over the -2.0 value because the other one is just 1.0, so literally what a plus node does is it just routes the gradient along the graph because the plus node's local derivatives are just 1.0.
+
+So `c.grad = -2.0` and by symmetry `e.grad = -2.0` as well. Filling this in and re-drawing our visualisation we get:
+
+![draw-dot-plus-node.svg](/content/zdravkograd/draw-dot-plus-node.svg)
+
+Now we are going to recurse our way backwards again one final time for the last two nodes and fill out their `grad` values and we are again going to apply the chain rule.
+
+We have `dL / de = -2.0`, we have just calculated this, so we know the derivative of L with respect to e. And now we want `dL / da = ?`, the chain rule tells us that that is just `(dL / de) * (de / da)`. So because we have that `e = a * b`, the derivative of that with respect to a is just `b`.
+
+So now we know that `a.grad = -2,0 * -3.0 = 6.0`, by symmetry `b.grad = -2.0 * 2.0 = -4.0`. Let's re-draw!
+
+![draw-dot-first-node.svg](/content/zdravkograd/draw-dot-first-node.svg)
+
+That's it! That was backpropogration done manually! Literally all we did was iterate through all the nodes one by one and locally applied the chain rule. That's really what backpropogation is, just a recursive application of the chain rule backwards through the computation graph.
+
+Let's briefly see this in action. Let's try to nudge our inputs to try to make `L` go up. So lets start with `a.data` and if we want `L` to go up we just need to go in the direction of the gradient. So a should increase in the direction of the gradient by some small amount (this is the step size): `a.data += 0.001 + a.grad`.
+
+We also want this for all four of our leaf nodes which we usuaully have control over.
+
+```python
+a.data += 0.001 + a.grad
+b.data += 0.001 + b.grad
+c.data += 0.001 + c.grad
+f.data += 0.001 + f.grad
+```
+
+Again, if we run this, because we are nudging in the direction of the gradient we are expecting `L` to go up. It's current value is -8.0 so it should become less negative. Running that and printing `L.data` we get `-7.286496`. Ok nice, just as we expected.
+
+This is basically one step of an optimisation that we'll end up running, so really these gradients give us this power, with them we know how to influence the final outcome. This is extremely useful for training neural nets.
+
+Now lets go through and do a more complex and more useful example by backpropogating through a Neuron.
+
+So we want to eventually build out neural networks, and in the simplest case this is a multilayer perceptron (MLP), for example this is a 2 layer neural net and its got these two hidden layers made up of neurons which are connected to each other through the layers.
+
+![simple-nn.jpeg](/content/zdravkograd/simple-nn.jpeg)
+
+Biologically neurons are very complicated devices.
+
+![biological-neuron](/content/zdravkograd/biological-neuron.png)
+
+But we have very simple mathematical models of them.
+
+![mathematical-neuron-model](/content/zdravkograd/mathematical-neuron-model.jpeg)
+
+You have some input (xs) and then you have these synapses (ws) that have weights attatched to them. The synapse interacts with the input to this neuron multiplicatively so what flows to this cell body of this neuron is w * x. But there can be multiple inputs so there can be many wx's flowing into this cell body. The cell body also then has some sort of bias, so this is like the innate trigger happiness to this neuron. Essentially we are taking all the wx's adding the bias and then take it through some activation function which is usually some kind of squashing function like a sigmoid or tanh.
+
+Here, I am going to use the tanh, lets quickly visualise this using numpy with this code:
+
+```python
+plt.plot(np.arange(-5, 5, 0.2), np.tanh(np.arange(-5, 5, 0.2))); plt.grid()
+```
+
+this outputs this image showcasing what a tanh function looks like:
+
+![tanh.png](/content/zdravkograd/tanh.png)
+
+You can see that as the inputs come in get squashed on the y coordinate, so right at 0 we get exactly 0, then as you go more positive in the input then the function will only go up to 1 and same thing on the reverse side with -1. So if you pass in very positive numbers we cap them smoothly at 1 and same thing on the negative side but capping to -1.
+
+So that is the activation function, and what comes out of the neuron is just the activation function applied to the dot product of the weights and the inputs.
+
+So if we write one out with this code:
+
+```python
+# inputs x1,x2
+x1 = Value(2.0, label='x1')
+x2 = Value(0.0, label='x2')
+# weights w1,w2
+w1 = Value(-3.0, label='w1')
+w2 = Value(1.0, label='w2')
+# bias of the neuron
+b = Value(6.7, label='b')
+# x1*w1 + x2*w2 + b
+x1w1 = x1*w1; x1w1.label = 'x1*w1'
+x2w2 = x2*w2; x2w2.label = 'x2*w2'
+x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1*w1 + x2*w2'
+n = x1w1x2w2 + b; n.label = 'n'
+```
+
+Here we have the inputs of this neuron (x1 and x2, so its a two dimensional neuron), then you have the weights of the neuron (w1, w2, these are the synaptic strengths of each input) and finally the bias of the neuron (b). Then, according to that model above, we multiply x1 * w1 and x2 * w2 and then we need to add bias on top of it. So now `n` is the cell body's raw activation without the activation function for now. Now let's draw this with `draw_dot(n)`:
+
+![draw-dot-n](/content/zdravkograd/draw-dot-n.svg)
+
+Now lets's take it through an activation function, let's use the tanh function so that we can produce the output. We can add onto the end `o = n.tanh()`, only issue is that we haven't yet written the tanh function for our `Value` class. So far we have only a plus and a times, and you cannot create this hyperbolic function out of just plusses and times, you also need exponentiation.
+
+![hyperbolic-tanh.png](/content/zdravkograd/hyperbolic-tanh.png)
+
+So this is the tanh formula and you can see that it also requires exponentiation as well as division, so we are not able to produce tanh yet, we are gonna go back to the `Value` class and implement something like it. Now we don't actually have to implement this tanh implementation using the exponents. We are actually completely free to implement functions at arbitrary points of abstraction. The only thing that matters is that we know how to differentiate through any one function.
+
+So instead of implementing division and exponentiation lets just implement tanh directly:
+
+```python
+def tanh(self):
+    x = self.data
+    t = (math.exp(2*x) - 1) / (math.exp(2*x) + 1)
+    out = Value(t, (self, ), 'tanh')
+    return out
+```
+
+Now `Value` should be implementing tanh and we can come back and use it in here and aso then draw the output node instead of n.
+
+```python
+# inputs x1,x2
+x1 = Value(2.0, label='x1')
+x2 = Value(0.0, label='x2')
+# weights w1,w2
+w1 = Value(-3.0, label='w1')
+w2 = Value(1.0, label='w2')
+# bias of the neuron
+b = Value(6.7, label='b')
+# x1*w1 + x2*w2 + b
+x1w1 = x1*w1; x1w1.label = 'x1*w1'
+x2w2 = x2*w2; x2w2.label = 'x2*w2'
+x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1*w1 + x2*w2'
+n = x1w1x2w2 + b; n.label = 'n'
+o = n.tanh(); o.label = 'o'
+draw_dot(o)
+```
+
+![draw-dot-tanh.svg](/content/zdravkograd/draw-dot-tanh.svg)
+
+But remember we must know the derivative of tanh in order to backprop through it.
+
+Let's quickly do something a little strange, lets change the bias to this number instaed `6.8813735870195432`, this is because we are about to start backpropogation and using this weird number will give us nice numbers as outputs so its easier to understand essentially. So let's start filling in all the grads with backprop.
+
+So what is the derivative of o with respect to o? This is our base case and remember this is just 1.0, so let's set that with `o.grad = 1.0`.
+
+![draw-dot-o.svg](/content/zdravkograd/draw-dot-o.svg)
+
+So if we have `o = tanh(n)`, so what is the derivative of o with respect to n? Now you could go do the whole differentiation of that whole exponential expression or we could just use this:
+
+![tanh-derivative.png](/content/zdravkograd/tanh-derivative.png)
+
+This tells us that `do / dn = 1 - (tanh(n)**2) = 1 - o**2`. Ok so let's use that now, we know that `o.data = 0.6044` and so `n.grad` would just be `1 - 0.6044**2` which is gives us `0.4999999999999999`... so the local derivative of this tanh operation here is conveniently 0.5 lol. We can now fill this in our graph with `n.grad = 0.5` giving us this graph.
+
+![draw-dot-tanh-deriv.svg](/content/zdravkograd/draw-dot-tanh-deriv.svg)
+
+Ok now, let's continue this backprop, next we have a plus node, so we just route the grad over to the next nodes, giving us.
+
+Continuing once again with a second plus node, we get:
+
+![draw-dot-second-plus.svg](/content/zdravkograd/draw-dot-second-plus.svg)
+
+Now continuing to backprop through the times nodes, first the x1 and w1 nodes. So for `x1.grad = 0.5 * -3.0`, for `w1.grad = 0.5 * 2.0`, and doing the same thing for x2 and w2 and finally visualising it all we get this graph:
+
+![draw-dot-final.svg](/content/zdravkograd/draw-dot-final.svg)
+
+Finally, we are done with this manual backpropogation, let's put an end to this suffering and automate this backward pass. But this needed to be done to make it extra clear by example how exactly backprop works, and what it's really doing behind the scenes.
+
+Let's go back up to our `Value` class and let's start codifying this process. We are going to start by storing a special `self._backward` variable in our values which will hold a function which will essentially do that little piece of chain rule at each little node. By default this will be a function that doesn't do anything so we use:
+
+```python
+self._backward = lambda: None
+```
+
+The reason why it initially does nothing is for the leaf node cases where there is nothing to do.
+
+But when we are creating these `out` values in the other op functions we do need to set this `_backward` variable to something. If we start with the `__add__`, here we need to set the `_backward` to be the function that propagates  this gradient. For addition our job is to take out's grad and propagate it to self's grad and other's grad. 
+
+```python
+def __add__(self, other):
+    out = Value(self.data + other.data, (self, other), '+')
+
+    def _backward():
+        self.grad = 1.0 * out.grad
+        other.grad = 1.0 * out.grad
+        
+    out._backward = _backward()
+    return out
+```
+
+Let's now do multiplication.
+
+```python
+def __mul__(self, other):
+    out =  Value(self.data * other.data, (self, other), '*')
+
+    def _backward():
+        self.grad = other.data * out.grad
+        other.grad = self.data * out.grad
+
+    out._backward = _backward()
+    return out
+```
+
+And finally for tanh too:
+
+```python
+def tanh(self):
+    x = self.data
+    t = (math.exp(2*x) - 1) / (math.exp(2*x) + 1)
+    out = Value(t, (self, ), 'tanh')
+
+    def _backward():
+        self.grad = (1 - t**2) * out.grad
+
+    out._backward = _backward()
+    return out
+```
+
+Now we dont have to do this manually anymore, if we re-initialise the data so our grad values are all 0.0 again. We now just need to call this `_backward()` function in the right order. As a base case we need to set o.grad to 1.0 instead of the 0.0 that it initially starts with. So now calling `o._backward()` gives us this:
+
+![draw-dot-auto-o.svg](/content/zdravkograd/draw-dot-auto-o.svg)
+
+As you can see it has automatically filled in `n.grad` to 0.5 as it should be. Now continuing with the rest of them:
+
+```python
+o._backward()
+n._backward()
+x1w1x2w2._backward()
+x1w1._backward()
+x2w2._backward()
+```
+
+and if we check now what everything is:
+
+![draw-dot-final.svg](/content/zdravkograd/draw-dot-final.svg)
+
+Perfect, everything is filled out and is correct.
+
+But now, we still had to manually call the `_backward()` methods manually so we actually have one last piece to get rid of. So let's take care of that.
+
+Essentially what we did was we laid out this mathematical expression and we are trying to backwards through that. Now going backwards through our expression just means that we never want to call the function on any node before we have done everything after it. So this ordering of graphs can be achieved through something called a topological sort.
+
+![topological-sort](/content/zdravkograd/topological-sort.png)
+
+Topological sort is basically a laying out of a graph such that all the edges only go from left to right. As you can see above we start with a directed acyclic graph (DAG) and below are two different topological sorts of it where it basically lays out the nodes such that all the edges go in one direction. To implement this we use this code below:
+
+```python
+topo = []
+visited = set()
+def build_topo(v):
+    if v not in visited:
+        visited.add(v)
+        for child in v._prev:
+            build_topo(child)
+        topo.append(v)
+build_topo(o)
+topo
+```
+
+Basically this is what builds our topological graph, we maintain a set of visited nodes and then starting at some root node (which for us its `o`, that's where we want to start the topological sort). So starting at `o` we go through all of its children and we need to lay them out from left to right. So it starts at `o`, if its not visited then it marks it as visited and then it iterates through all of its children and calls the `build_topo()` on them and then after it has gone through all of its children it adds itself. So our node `o` is only going to add itself to the `topo` list after all of its children have been processed. So now if we inspect this list:
+
+```python
+[Value(data=6.881373587019543),
+ Value(data=2.0),
+ Value(data=-3.0),
+ Value(data=-6.0),
+ Value(data=1.0),
+ Value(data=0.0),
+ Value(data=0.0),
+ Value(data=-6.0),
+ Value(data=0.8813735870195432),
+ Value(data=0.7071067811865476)]
+```
+
+So now all thats left to do is to call `_backward()` on all of the nodes in the topological order.
+
+So from the start now, first we start by setting `o.grad = 1.0`, thats the base case, then we build the topological order and then we call the `_backward()` function for each node in the `reversed()` order of topo. Codifying that we get:
+
+```python
+o.grad = 1.0
+
+topo = []
+visited = set()
+def build_topo(v):
+    if v not in visited:
+        visited.add(v)
+        for child in v._prev:
+            build_topo(child)
+        topo.append(v)
+build_topo(o)
+
+for node in reversed(topo):
+    node._backward()
+```
+
+We can quickly check if that is good by re-initialising our expression to clear the grads, then run that code and see if the grads are all filled in, which they are.
+
+Finally, we are going to hide this functionality inside the `Value` class so we dont just have all that code lying around. So instead of an `_backward()` we are now going to define an actual `backward()`.
+
+```python
+def backward(self):
+    topo = []
+    visited = set()
+    def build_topo(v):
+        if v not in visited:
+            visited.add(v)
+            for child in v._prev:
+                build_topo(child)
+            topo.append(v)
+    build_topo(self)
+
+    self.grad = 1.0
+    for node in reversed(topo):
+        node._backward()
+```
+
+So now we can just call `o.backward()` without the underscore and there we go. And that is backpropogation!
+
+Actually, all is not well... there is actually a bug in our code that we have not noticed because of some certain conditions that we need to think about. Here is the simplest case that shows the bug:
+
+```python
+a = Value(3.0, label='a')
+b = a + a; b.label = 'b'
+b.backward()
+draw_dot(b)
+```
+
+If we run that we see this graph:
+
+![backprop-bug.svg](/content/zdravkograd/backprop-bug.svg)
+
+Let's say we create a single node `a` and then I create a node `b` that is `a + a` and then I called `backward()`. In the graph it looks like there is one arrow there connecting to the plus node but actually there are 2! Looking at the forward pass it works, a + a is indeed 6.0, but the gradient there is not actually correct. You should easily be able to spot this because by doing the differentiation of that b expression with respect to a should actually be 2 (1 + 1) not 1. Essentially what is happening is we are overriding the gradient because self and other (in the __add__ method) are both a, but our code is assigning 1 to them twice. 
+
+This issue will arise any time you use a variable more than once, since until now we haven't done this we haven't seen the issue but that doesn't mean it shouldn't get fixed!
+
+So the solution is actually very simple, instead of re-assigning these gradient values we need to accumulate them, this is a very simple fix for us because we can simply use `+=` instead of the `=` that we are currently using. Here is our `Value` class now fixed.
+
+```python
+class Value:
+
+    def __init__(self, data, _children=(), _op='', label=''):
+        self.data = data
+        self.grad = 0.0
+        self._backward = lambda: None
+        self._prev = set(_children)
+        self._op = _op
+        self.label = label
+
+    def __repr__(self):
+        return f"Value(data={self.data})"
+
+    def __add__(self, other):
+        out = Value(self.data + other.data, (self, other), '+')
+
+        def _backward():
+            self.grad += 1.0 * out.grad
+            other.grad += 1.0 * out.grad
+            
+        out._backward = _backward
+        return out
+
+    def __mul__(self, other):
+        out =  Value(self.data * other.data, (self, other), '*')
+
+        def _backward():
+            self.grad += other.data * out.grad
+            other.grad += self.data * out.grad
+
+        out._backward = _backward
+        return out
+
+    def tanh(self):
+        x = self.data
+        t = (math.exp(2*x) - 1) / (math.exp(2*x) + 1)
+        out = Value(t, (self, ), 'tanh')
+
+        def _backward():
+            self.grad += (1 - t**2) * out.grad
+
+        out._backward = _backward
+        return out
+
+    def backward(self):
+        topo = []
+        visited = set()
+        def build_topo(v):
+            if v not in visited:
+                visited.add(v)
+                for child in v._prev:
+                    build_topo(child)
+                topo.append(v)
+        build_topo(self)
+
+        self.grad = 1.0
+        for node in reversed(topo):
+            node._backward()
+```
+
+We can also check if its fixed by redrawing the previous graph to make sure it is now 2.
+
+![bug-fixed.svg](/content/zdravkograd/bug-fixed.svg)
+
+Nice!
+
