@@ -953,3 +953,252 @@ We can also check if its fixed by redrawing the previous graph to make sure it i
 
 Nice!
 
+Ok, now, going back to the tanh function. We could have broken it down into its explicit atoms, in terms of other expressions if we had the exponential function in our `Value` class. But we chose to develop tanh as a single function because we knew its derivative and so we could backprop through it, however let's not forget that the atomic variant using the exp functions still exists. So now let's do exactly that, to prove that it can also be done this way and also so we can implement a couple more expressions and functions into our `Value` class.
+
+First let's take care of this, currently we cannot do this:
+
+```python
+a = Value(2.0)
+a + 1
+```
+
+Running that would give us this error:
+
+```python
+---------------------------------------------------------------------------
+AttributeError                            Traceback (most recent call last)
+Cell In[111], line 2
+      1 a = Value(2.0)
+----> 2 a + 1
+
+Cell In[107], line 18, in Value.__add__(self, other)
+     17 def __add__(self, other):
+---> 18     out = Value(self.data + other.data, (self, other), '+')
+     20     def _backward():
+     21         self.grad += 1.0 * out.grad
+
+AttributeError: 'int' object has no attribute 'data'
+```
+
+It says int object has no attribute data, of course, because other (now being the integer 1) doesn't have a data attribute. The integer 1 is not a `Value` object and we only have addition for `Value` objects right now. So as a matter of convenience let's fix that with this line of code:
+
+```python
+other = other if isinstance(other, Value) else Value(other)
+```
+
+All we are doing is checking if `other` is an instance of `Value`, if it is leave it alone, otherwise I will assume its an integer or a float and we are just going to wrap it with `Value`.
+
+Now if we run the code again adding 1 to `a` we get: `Value(data=3.0)`. Now we need to do the exact same thing for multiply.
+
+Ok, so now `a * 2` works and we get: `Value(data=4.0)` but what about if we do `2 * a`? Trying to do that I get this error:
+
+```python
+---------------------------------------------------------------------------
+TypeError                                 Traceback (most recent call last)
+Cell In[116], line 2
+      1 a = Value(2.0)
+----> 2 2 * a
+
+TypeError: unsupported operand type(s) for *: 'int' and 'Value'
+```
+
+This is because when I do `a * 2` python is essentially doing `a.__mul__(2)` but if I do it the other way around it then runs this `2.__mul__(a)` and the integer 2 cannot multiply a `Value` object and so it gets confused. So instead we need to define something called an `__rmul__` that will look like this:
+
+```python
+def __rmul__(self, other):
+    return self * other
+```
+
+Rmul is kind of like a fallback, so if python cannot do `2 * a` it will check if by any chance a knows how to multiply by 2, and that gets called into `__rmul__`. So all we do in that is just swapping the order of the operands.
+
+Ok nice, what's left now is to get exponentiation and division, in order to be able to codify the tanh exponentiation formula. Let's start with the exponentiation part.
+
+```python
+def exp(self):
+    x = self.data
+    out = Value(math.exp(x), (self, ), 'exp')
+
+    def _backward():
+        self.grad += out.data * out.grad
+
+    out._backward = _backward
+    return out
+```
+
+We are going to introduce a single function `exp()`, but how do we backprop through e to the x? Well, famously, the differentiation for that is simply the exact same, e to the x, which we just stored in `out.data`. So apply the chain rule and we have the `_backward()` function complete too.
+
+And the last thing we need to do is division. I will do this in a little bit more powerful way than just division. What we would like to work is to do something like this:
+
+```python
+a = Value(2.0)
+b = Value(4.0)
+a / b
+```
+
+which should return 0.5 but currently gives us this error:
+
+```python
+---------------------------------------------------------------------------
+TypeError                                 Traceback (most recent call last)
+Cell In[117], line 3
+      1 a = Value(2.0)
+      2 b = Value(4.0)
+----> 3 a / b
+
+TypeError: unsupported operand type(s) for /: 'Value' and 'Value'
+```
+
+Now division can actually be re-shuffled like this:
+
+```python
+a / b
+a * (1/b)
+a * (b**-1)
+```
+
+If we have a / b, that's actually the same as a multiplying by 1 over b. Which is also the same as a multiplying by b to the power of negative 1. And so what we would really need to implement is a to the power of k (a**k), of some constant k. The reason for doing it this way is simply because its more general.
+
+So we can redefine division like this:
+
+```python
+def __truediv__(self, other):
+    return self * (other**-1)
+```
+
+Now we just need to define this part `other**-1`, so we need to implement the `__pow__()` function.
+
+```python
+def __pow__(self, other):
+    assert isinstance(other, (int, float)), "only supporting int/float powers for now"
+    out = Value(self.data**other, (self, ), f'**{other}')
+
+    def _backward():
+        self.grad += other * (self.data**(other - 1)) * out.grad
+
+    out._backward = _backward
+    return out
+```
+
+Here we are forcing other to essentially be either an int or a float, otherwise the math won't work for what we are trying to achieve in this specific case. And the chain rule for backproping through the power function is the derivative of the power rule.
+
+![power-rule-deriv.png](/content/zdravkograd/power-rule-deriv.png)
+
+We also need one final piece of code to be able to subtract too, of course. So we have these two:
+
+```python
+def __neg__(self):
+    return self * -1
+
+def __sub__(self, other):
+    return self + (-other)
+```
+
+So we have the `__sub__()` to be able to subtract, implemented by an addition of a negation. And to implement negation we simply multiply by negative 1.
+
+So now `a / b` gives us: `Value(data=0.5)`! Very good!
+
+Ok now let's go back to this graph that uses the tanh:
+
+![draw-dot-final.svg](/content/zdravkograd/draw-dot-final.svg)
+
+So now let's actually break up that tanh into the exponential equivalent.
+
+We first start with what we currently have:
+
+```python
+# inputs x1,x2
+x1 = Value(2.0, label='x1')
+x2 = Value(0.0, label='x2')
+# weights w1,w2
+w1 = Value(-3.0, label='w1')
+w2 = Value(1.0, label='w2')
+# bias of the neuron
+b = Value(6.8813735870195432, label='b')
+# x1*w1 + x2*w2 + b
+x1w1 = x1*w1; x1w1.label = 'x1*w1'
+x2w2 = x2*w2; x2w2.label = 'x2*w2'
+x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1*w1 + x2*w2'
+n = x1w1x2w2 + b; n.label = 'n'
+o = n.tanh(); o.label = 'o'
+o.backward()
+```
+
+Let's change how we define `o` to implement this formula here:
+
+![exp-tanh.png](/content/zdravkograd/exp-tanh.png)
+
+So we need e to 2x, which is `(2*n).exp()`, and because we will use it twice let's create an intermediate variable `e` and then define `o` as the following:
+
+```python
+# inputs x1,x2
+x1 = Value(2.0, label='x1')
+x2 = Value(0.0, label='x2')
+# weights w1,w2
+w1 = Value(-3.0, label='w1')
+w2 = Value(1.0, label='w2')
+# bias of the neuron
+b = Value(6.8813735870195432, label='b')
+# x1*w1 + x2*w2 + b
+x1w1 = x1*w1; x1w1.label = 'x1*w1'
+x2w2 = x2*w2; x2w2.label = 'x2*w2'
+x1w1x2w2 = x1w1 + x2w2; x1w1x2w2.label = 'x1*w1 + x2*w2'
+n = x1w1x2w2 + b; n.label = 'n'
+# -------
+e = (2*n).exp(); e.label = 'e'
+o = (e - 1) / (e + 1); o.label = 'o'
+# -------
+o.backward()
+```
+
+Now before running this what do we expect, well all we've done is break down that tanh into a mathematically equivalent expression, so our graph might get a little longer but we should see the exact same data value for `o` as well as the same greadients on the rest of the nodes which would mean that our backward pass also works correctly. Let's verify.
+
+![equiv-expression.svg](/content/zdravkograd/equiv-expression.svg)
+
+Perfect! So this tells us that the level at which we implement operations in is totally up to us! We can implement backward passes for tiny individual operations like a plus or a minus, or we can implement them for something like a tanh function, so like composite operations.
+
+Alright, so now let's have a look at how we can do the exact same thing but instead using a modern deep neural net library like PyTorch for example.
+
+PyTorch is something you would of course use in production.
+
+So this is what it would look like:
+
+```python
+import torch
+
+x1 = torch.tensor([2.0]).double()                ; x1.requires_grad = True
+x2 = torch.tensor([0.0]).double()                ; x2.requires_grad = True
+w1 = torch.tensor([-3.0]).double()               ; w1.requires_grad = True
+w2 = torch.tensor([1.0]).double()                ; w2.requires_grad = True
+b = torch.tensor([6.8813735870195432]).double()  ; b.requires_grad = True
+
+n = x1*w1 + x2*w2 + b
+o = torch.tanh(n)
+
+print(o.data.item())
+o.backward()
+
+print('---')
+print('x2', x2.grad.item())
+print('w2', w2.grad.item())
+print('x1', x1.grad.item())
+print('w1', w1.grad.item())
+```
+
+So we first import pytorch, then we define our value objects like we did previously. Something to keep in mind is that zdravkograd is a scalar valued engine, so we only have scalar values like `2.0`, but in PyTorch everything is based around tensors which are just n dimensional arrays of scalars. So thats why things get a little bit more complicated here with this type of code `tensor([2.0])` because we just need a single element tensor, usually they will be larger and more complex. After that we are also casting it to be a double, this is because by default python uses double precision for its floating point numbers so we would like everything to be identical, because by default tensors use a single precision float (float32, whereas we need float64).
+
+Another thing that we would have to do is because by default PyTorch is treating these as leaf nodes, which don't have gradients, so we need to explicitly say that all of these nodes require gradients with this code: `x1.requires_grad = True`. PyTorch sets these to False by default for efficiency reasons.
+
+So once we have defined our nodes we can now perform arithmetic and also use the `torch.tanh()`. And just like in zdravkograd its got a data and a grad attribute, only difference is we also need to call `.item()` this essentially strips out the tensor part and just leaves you with the number. So if we run this we see:
+
+```python
+0.7071066904050358
+---
+x2 0.5000001283844369
+w2 0.0
+x1 -1.5000003851533106
+w1 1.0000002567688737
+```
+
+Which are the same values that we had with zdravkograd. So basically PyTorch can do what we did in zdravkograd as a special case when your tensors are all single element tensors. The big deal with PyTorch is everything is significantly more efficient because we are working with these tensor objects and we can do lots of operations on them in parallel on all of these tensors.
+
+---
