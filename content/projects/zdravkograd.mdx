@@ -1202,3 +1202,68 @@ w1 1.0000002567688737
 Which are the same values that we had with zdravkograd. So basically PyTorch can do what we did in zdravkograd as a special case when your tensors are all single element tensors. The big deal with PyTorch is everything is significantly more efficient because we are working with these tensor objects and we can do lots of operations on them in parallel on all of these tensors.
 
 ---
+
+Ok, so now that we have some machinery to build out some pretty complicated mathematical expressions we can also start building out neural nets. Again keep in mind that neural nets are just a specific class of mathematical expressions.
+
+So we are going to start building out a neural net piece by piece and eventually build out a 2 layer MLP. Let's start with a single individual Neuron.
+
+```python
+class Neuron:
+    def __init__(self, nin):
+        self.w = [Value(random.uniform(-1,1)) for _ in range(nin)]
+        self.b = Value(random.uniform(-1,1))
+```
+
+So the constructor will take number of inputs (nin), which is how many inputs come into a neuron and then its going to create a weight (w) that is some random number between negative 1 and 1 for every one of those inputs, and a bias (b) that controls the overall trigger happiness of this neuron. And then we will implement a `__call__()` function. 
+
+If you don't know what that function does let me show you, let's do this for now:
+
+```python
+def __call__(self, x):
+    return 0.0
+```
+
+The way this works now is we can do this:
+
+```python
+x = [2.0, 3.0]
+n = Neuron(2)
+n(x)
+```
+
+Let's create some x which has two numbers in an array, then we initialise a neuron that is 2 dimensional, because we have two numbers. Then we can feed those two numbers into that neuron using `n(x)`, and so when you use this notation `n(x)` python uses the `__call__()` method.
+
+Ok currently though call just returns 0.0 and we need it to do w * x + b, the forward pass.
+
+```python
+def __call__(self, x):
+    act = sum((xi*wi for xi,wi in zip(x, self.w)), self.b)
+    out = act.tanh()
+    return out
+```
+
+So what we do is we multiply all of the elements of w with all of the elements of x, pairwise. So the first thing we are going to do is we are going to zip up `self.w` and `x`. In python `zip()` essentially takes two iterators and it creates a new iterator that iterates over the tuples of their corresponding entries. And now we multiply wi times xi and then sum all of that together to come up with an activation, and also `self.b` on top. So that's the raw activation and then of course we need to pass that through a squashing function (will use tanh for this for simplicity).
+
+So now running this:
+
+```python
+x = [2.0, 3.0]
+n = Neuron(2)
+n(x)
+```
+
+And that will give us some outputs like these:
+
+```python
+Value(data=0.9321534794856714)
+```
+
+```python
+Value(data=0.2873141110548085)
+```
+
+```python
+Value(data=-0.7198429286366963)
+```
+
+And we get a different output from the neuron each time because we are initialising different weights and biases
