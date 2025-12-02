@@ -1266,4 +1266,171 @@ Value(data=0.2873141110548085)
 Value(data=-0.7198429286366963)
 ```
 
-And we get a different output from the neuron each time because we are initialising different weights and biases
+And we get a different output from the neuron each time because we are initialising different weights and biases.
+
+---
+
+Next up we are going to define a `Layer` of `Neurons`. So here we have a schematic for an MLP.
+
+![simple-nn.jpeg](/content/zdravkograd/simple-nn.jpeg)
+
+Here you can see that each layer has a number of neurons and they are not connected to each other but all of them are fully connected to the input. So all a layer of neurons is, is a set of neurons all evaluated independently.
+
+```python
+class Layer:
+
+    def __init__(self, nin, nout):
+        self.neurons = [Neuron(nin) for _ in range(nout)]
+
+    def __call__(self, x):
+        outs = [n(x) for n in self.neurons]
+        return outs
+```
+
+The `Layer` class here is literally just a list of neurons, and then how many neurons do we have in it is just the `nout` variable (number of outputs). And so we just initialise completely independent Neurons with this given dimensionality. And when we call a Layer we just independently evaluate them.
+
+And now we can create a `Layer` of neurons like this:
+
+```python
+x = [2.0, 3.0]
+n = Layer(2, 3)
+n(x)
+```
+
+And calling the layer would independently evaluate them and give us something like this:
+
+```python
+[Value(data=-0.9557290239408349),
+ Value(data=0.9688743763488269),
+ Value(data=0.2821627732604002)]
+```
+
+---
+
+Okay and finally, let's complete this picture and define an MLP, and as you can see from the simple example above those layers just feed into each other sequentially.
+
+
+```python
+class MLP:
+
+    def __init__(self, nin, nouts):
+        sz = [nin] + nouts
+        self.layers = [Layer(sz[i], sz[i+1]) for i in range(len(nouts))]
+
+    def __call__(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
+```
+
+So an `MLP` is very similar, we are taking the number of inputs, same as before, but now instead of taking a single `nout`, which is the number of neurons in a single layer, we are going to take a list of `nouts` and this listifies the sizes of all the layers that we want in our MLP.
+
+So in the `__init__()` we just put them all together and then iterate over consecutive pairs of these sizes and then create `Layer` objects for them. And then in the `__call__()` function we are just calling them sequentially. So that's an MLP really. And let's actually re-inplement this picture:
+
+![simple-nn.jpeg](/content/zdravkograd/simple-nn.jpeg)
+
+So we want 3 input neurons, then two layers of 4 and then an output.
+
+```python
+x = [2.0, 3.0, -1.0]
+n = MLP(3, [4, 4, 1])
+n(x)
+```
+
+So we want three inputs, so make sure x has three inputs, then we initialise the MLP with three inputs, two layers of 4 and then a single output, and then calling it we get the forward pass of the MLP:
+
+```python
+[Value(data=0.371457832931364)]
+```
+
+To make this a little bit nicer, see how we get this output in a list, becaue `Layer` always returns a list, so for convenience let's do this:
+
+```python
+return outs[0] if len(outs) == 1 else outs
+```
+
+And this allows us to get a single `Value` out at the last layer if it only has a single neuron, like this:
+
+```python
+Value(data=0.863842062086533)
+```
+
+Another thing we can do is also draw dot this `n(x)` and as you might imagine these expressions are now getting quite huge:
+
+![draw-dot-simple-nn.svg](/content/zdravkograd/draw-dot-simple-nn.svg)
+
+So of course you would never go and differentiate thruogh all of this but with zdravkograd we will be able to backpropogate all the way through this, and backprop into these weights of all these neurons, so let's see how that works.
+
+---
+
+First, let's create a simple example dataset here:
+
+```python
+xs = [
+    [2.0, 3.0, -1],
+    [3.0, -1.0, 0.5],
+    [0.5, 1.0, 1.0],
+    [1.0, 1.0, -1.0]
+]
+ys = [1.0, -1.0, -1.0, 1.0]
+```
+
+So this dataset has 4 examples (xs), and so we have 4 possible inputs into the neural net. We also have 4 desired targets (ys), so we would like the neural net to output `1.0` when its fed the first example and so on. So it's a very simple binary classifier neural net that we would like here. 
+
+Now let's see what the neural net currently thinks about these 4 examples using this:
+
+```python
+ypred = [n(x) for x in xs]
+ypred
+```
+
+We just get their predictions, all we are doing is calling `n(x)` for x in `xs` and then we can print:
+
+```python
+[Value(data=0.863842062086533),
+ Value(data=0.39251845122664425),
+ Value(data=0.8794808525523493),
+ Value(data=0.8461914035578225)]
+```
+
+So these are the outputs of the neural net, so these are the outputs of the neural net for those 4 examples. So the first one is `0.863842062086533` but we would like it to be `1.0` so we should push this one higher. The second one says `0.39251845122664425` and we would like that one to be `-1.0` so that should go down, and so on.
+
+So now how do we tune the weights of the neural net to better predict the desired targets? The trick used in deep learning to achieve this is to calculate a single number that somehow measures the total performance of our neural net, and we call this single number the **loss**. Right now we have the intuitive sense that it's not performing very well because we are not very close to our desired outputs (ys), so the loss will be high, we want to minimise the loss.
+
+So in this particular case we are going to implement a mean squared error loss.
+
+```python
+for ygt, yout in zip(ys, ypred)
+```
+
+What this is doing is pairing the ground truths with the predictions, and that zip iterates over tuples of them.
+
+```python
+[(yout - ygt)**2 for ygt, yout in zip(ys, ypred)]
+```
+
+And for each y ground truth and y output we are going to subtract them and square them. So let's first see what these losses are (the individual loss components):
+
+```python
+[Value(data=0.018538984056847528),
+ Value(data=1.9391076370066518),
+ Value(data=3.532448275110905),
+ Value(data=0.02365708433951261)]
+```
+
+Basically, for each one of the four, we are taking the prediction and the ground truth, we are subtracting them and squaring them. Instead of squaring we could also take the absolute value, we just need to discard the sign. And so the expression is arranged so that you only get 0 if y out is equal to y ground truth, when those two are equal, so your prediction is exactly the target we will get 0. The more off our predictions are the greater the loss will be. We don't want high loss we want low loss.
+
+And so the final loss will simply be the sum of all of those numbers:
+
+```python
+loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+loss
+```
+
+Which gives us:
+
+```python
+Value(data=5.513751980513917)
+```
+
+So now we need to minimise the loss because if loss is low then every one of our predictions is equal to its target.
