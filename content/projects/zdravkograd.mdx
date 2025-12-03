@@ -1434,3 +1434,84 @@ Value(data=5.513751980513917)
 ```
 
 So now we need to minimise the loss because if loss is low then every one of our predictions is equal to its target.
+
+Now, if we do `loss.backward()`, something magical may happen...
+
+We can take a look at this: `n.layers[0].neurons[0].w[0].grad` which now gives us `-0.15455925201254145`, so it now has a grad, thanks to the backward pass. So we see here that this weight here of this particular neuron in this particular layer is negative, this tells us that it's influence on the loss is also negative. So slightly increasing this weight would make the loss go down. And we have this information for every one of our neurons and all of their params.
+
+It's also worth looking at the `draw_dot()` of the loss, remember previously we looked at the graph of a single neuron's forward pass and that was already a large expression, but what is this expression? We actually forwarded every one of those 4 examples and then we have the loss on top of them with the mean squared error and so what we get is a super duper massive graph.
+
+![draw-dot-loss-big.svg](/content/zdravkograd/draw-dot-loss-big.svg)
+
+You can see also that all of these nodes have their grads too, even the input data, but the grads for the input data aren't very useful to us, this is because they are fixed and cannot be changed. However, some of these gradients will be for the neural network parameters, the w's and the b's and those of course we want to change.
+
+Ok so now we want some convenience code that will essentially gather up all of the parameters of the neural net so we can operate on them simultaneously, and every one of them we will nudge a tiny amount based on the gradient information. So let's collect the parameters of the neural net now all in one array.
+
+```python
+def parameters(self):
+    return self.w + [self.b]
+```
+
+We put this in our `Neuron` class, we return `self.w` which is a list, concatenated with a list of `self.b`. List plus list equals list, simple.
+
+```python
+def parameters(self):
+    return [p for neuron in self.neurons for p in neuron.parameters()]
+```
+
+This goes in our `Layer` class and here we just use a single list comprehension.
+
+```python
+def parameters(self):
+    return [p for layer in self.layers for p in layer.parameters()]
+```
+
+And finally in our `MLP` class, the same thing pretty much as the previous one.
+
+Ok now we are going to need to re-initialise our network so we will lose the values we were just looking at but thats fine. So now if we do `n.parameters()` we get this:
+
+```python
+[Value(data=-0.8015031074224241),
+ Value(data=-0.9169580898178005),
+ Value(data=0.8556360302178518),
+ Value(data=-0.40745808569150066),
+ Value(data=0.35499781299863375),
+ Value(data=0.40324357016872847),
+ Value(data=-0.08197521469981339),
+ Value(data=0.15258478301306333),
+ Value(data=0.2620667957020506),
+ Value(data=0.20325364452614703),
+ Value(data=0.16693492897014472),
+ Value(data=-0.2825010088926958),
+ Value(data=0.9075135652459132),
+ Value(data=-0.6727934237259026),
+ Value(data=0.8130353342221799),
+ Value(data=-0.9633407928660425),
+ Value(data=-0.0511356434988357),
+ Value(data=-0.019318335169764334),
+ Value(data=0.2768318434993102),
+ Value(data=0.4467459999768564),
+ Value(data=-0.5680594358215434),
+ Value(data=-0.8300702788390601),
+ Value(data=0.11923328682833767),
+ Value(data=0.9134430140647103),
+ Value(data=0.8020264888226167),
+ Value(data=-0.9987514138253692),
+ Value(data=-0.8985516792314467),
+ Value(data=0.6217507843036687),
+ Value(data=0.26861330170360675),
+ Value(data=-0.620341103739469),
+ Value(data=-0.617633298138331),
+ Value(data=-0.8790622221055819),
+ Value(data=0.8917832461492952),
+ Value(data=-0.14110333866554758),
+ Value(data=0.7802349008255729),
+ Value(data=-0.34409641719983153),
+ Value(data=-0.13489395330055864),
+ Value(data=-0.5266494915790159),
+ Value(data=0.9323603822462916),
+ Value(data=0.3478018151186828),
+ Value(data=-0.3671053115302143)]
+```
+
+So these are all the weights and biases of the entire neural net, so in total (`len(n.parameters())` = `41`), this MLP has 41 parameters.
