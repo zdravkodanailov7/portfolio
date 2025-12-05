@@ -1,6 +1,6 @@
 ---
 title: "ZdravkoGrad"
-publishedAt: "2025-11-29"
+publishedAt: "2025-12-05"
 summary: "A scalar valued autograd engine and a neural net library on top of it with PyTorch-like API."
 ---
 
@@ -1515,3 +1515,219 @@ Ok now we are going to need to re-initialise our network so we will lose the val
 ```
 
 So these are all the weights and biases of the entire neural net, so in total (`len(n.parameters())` = `41`), this MLP has 41 parameters.
+
+---
+
+Ok so we see now that this neuron's gradient `n.layers[0].neurons[0].w[0].grad` which is `-1.2981844955870419` is slightly negative. We can also look at its data with `n.layers[0].neurons[0].w[0].data` which is `-0.9226360174816963`.
+
+So what we want to do now is iterate for every parameter in our `n.parameters()`, so for all the 41 parameters in this neural net, we want to change `p.data` slightly according to the gradient information. So this will be a tiny update in our gradient descent scheme. In gradient descent we are thinking of the gradient as a vector pointing in the direction of increasing loss.
+
+```python
+for p in n.parameters():
+    p.data -= 0.01 * p.grad
+```
+
+So if we run this, and nudge all the params a tiny amount, then we can see that this data `n.layers[0].neurons[0].w[0].data` has now changed to this number `-0.9096541725258259`, it changed slightly. So now its a little bit greater of a value, and that's a good thing because slightly increasing this neuron will make the loss go down, according to its gradient.
+
+So now because we have changed all these values we can expect that the loss which used to be `Value(data=4.536247811077203)` should have gone down a bit, it's now `Value(data=3.6754712071009727)`. Good and remember, low loss means that our predictions are now closer to the targets!
+
+So now what we have to do is we have to iterate this process. Keep in mind also that if you try to go too fast and try to make too big of a step you may actually overstep the local minimum of the gradient. This can destabalise training and make the loss blow up even.
+
+Now let's make this a tiny bit more respectable and implement an actual training loop.
+This is the data definition:
+```python
+xs = [
+    [2.0, 3.0, -1],
+    [3.0, -1.0, 0.5],
+    [0.5, 1.0, 1.0],
+    [1.0, 1.0, -1.0]
+]
+ys = [1.0, -1.0, -1.0, 1.0]
+```
+
+Then, first we do a forward pass, then we do a backward pass and finally we update the params.
+```python
+for k in range(20):
+    # forward pass
+    ypred = [n(x) for x in xs]
+    loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+    # backward pass
+    loss.backward()
+
+    # update
+    for p in n.parameters():
+        p.data -= 0.05 * p.grad
+
+    print(k, loss.data)
+```
+
+And if we run this we get this:
+
+```python
+0 1.529599185105458
+1 2.3051303835639994
+2 0.1591446736518378
+3 0.10273687114381344
+4 0.13397239276922573
+5 0.18270233530130778
+6 0.046404137513044605
+7 0.005438687988357785
+8 0.005108786902330618
+9 0.028666411491592398
+10 0.14781510657782143
+11 0.05577413010013488
+12 0.0012665326175115665
+13 1.2506186958400938e-05
+14 3.8045143707629016e-07
+15 3.6794105378802586e-08
+16 5.138244152180156e-09
+17 8.25893563724724e-10
+18 1.4696623456863828e-10
+19 2.8584294814650368e-11
+```
+
+Nice, we have converged, we got to a loss that is very low! So now let's inspect `ypred` and see if its close to our `ys`:
+
+```python
+[Value(data=0.9999965916090436),
+ Value(data=-0.9999993082504521),
+ Value(data=-0.9999994833141905),
+ Value(data=0.9999959723847949)]
+```
+
+Yes! It's super duper close!
+
+However, there is an issue, and its a very common issue that even experts can forget and fall into. We forgot to zero grad! What is that? It's quite subtle but essentially, all of these weights have a `.data()` and a `.grad()`. The `.grad()` starts at 0, then we do a backward pass which fills in the gradients, then we do an update on the data using those grads, and after that we don't flush the grad, it stays there. So when we do the second forward pass, and we do backward again, remember that all the backward operations do a `+=` on the grad, and so these gradients just add up and up and up and never get reset!
+
+So here's how we zero grad:
+
+```python
+for k in range(20):
+    # forward pass
+    ypred = [n(x) for x in xs]
+    loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+    
+    # zero gradients
+    for p in n.parameters():
+        p.grad = 0.0
+    
+    # backward pass
+    loss.backward()
+
+    # update
+    for p in n.parameters():
+        p.data -= 0.05 * p.grad
+
+    print(k, loss.data)
+```
+
+We need to iterate over all the aprams and we need to make sure that the `grad`'s are set to zero, just like it does in the constructor. So now let's reset the neural net, the data (which is the same), and if we inspect the data now:
+
+```python
+0 10.541041025299343
+1 5.591497943422341
+2 2.21822735107375
+3 1.2588682967425895
+4 0.740132402735687
+5 0.4753853358167178
+6 0.3336289959698347
+7 0.25042323641867265
+8 0.1973719936929933
+9 0.16125658883237295
+10 0.13538422045670398
+11 0.11609146635371728
+12 0.10123628671954024
+13 0.08949563146834486
+14 0.08001416478133207
+15 0.07221734805665654
+16 0.06570653471964506
+17 0.06019733451868971
+18 0.0554819399134662
+19 0.05140529391281888
+```
+
+I notice that we get a much more gradual descent, we still end up with pretty good results:
+
+```python
+[Value(data=0.9171422487757221),
+ Value(data=-0.9470136206082874),
+ Value(data=-0.8524257310012262),
+ Value(data=0.8587407854215888)]
+```
+
+Ok so why did it actually end up working with that bug in the gradient descent code?
+That is because this is actually a very very simple problem that we are trying to solve with this neural net, it's very easy for this neural net to fit this data. So that grads ended up accumulating and effectively gave us a massive step size which made us converge extremely fast. So now we have to do more steps. We can also increase the step from `0.05` to `0.1` and also increase the number of steps from 20 to 100 let's say. Let's try that and see our results:
+
+```python
+for k in range(100):
+    # forward pass
+    ypred = [n(x) for x in xs]
+    loss = sum((yout - ygt)**2 for ygt, yout in zip(ys, ypred))
+    
+    # zero gradients
+    for p in n.parameters():
+        p.grad = 0.0
+    
+    # backward pass
+    loss.backward()
+
+    # update
+    for p in n.parameters():
+        p.data -= 0.1 * p.grad
+
+    print(k, loss.data)
+```
+
+```python
+0 7.723709992198133
+1 7.543538936295437
+2 7.013975992374648
+3 4.667171772402771
+4 1.925944726113833
+5 2.430507827200392
+6 0.04090262825707465
+7 0.03636529903661968
+8 0.03272692803583811
+9 0.029743371812566026
+10 0.027252034637224525
+11 0.02514027010150074
+12 0.023327484457525353
+13 0.02175445082662786
+14 0.020376646166501963
+15 0.01915994293001845
+16 0.01807773582234216
+17 0.01710897386162344
+18 0.01623678079828426
+19 0.015447467992139776
+20 0.014729815152644557
+21 0.014074537672604758
+22 0.01347388634005692
+23 0.012921342524542993
+24 0.012411383256733757
+...
+96 0.003133501847820981
+97 0.003100472618394274
+98 0.003068116818594674
+99 0.003036414227238456
+```
+
+And our predictions with this now are:
+
+```python
+[Value(data=0.9848083610425493),
+ Value(data=-0.9690138349567345),
+ Value(data=-0.9750907304087836),
+ Value(data=0.9649997971810371)]
+```
+
+Pretty good! So I have noticed that working with neural nets can be sometimes quite tricky because there might be lots of bugs in the code and your network might actually work, just like ours worked, but chances are that if we had a more complex problem this might not have worked, we only really got away with it because the problem was very simple.
+
+---
+
+So now let me bring everything together and summarise what I have learned.
+
+What are neural nets?
+
+Neural nets are these mathematical expressions, fairly simple mathematical expressions in the case of MLP's, that take input as the data as well as the weights and biases of the NN. So a mathematical expression for the forward pass followed by a loss function, and the loss function tries to measure the accuracy of the predictions. And usually your loss will be low when your predictions are matching your targets, so the network is behaving well. So we manipulate the loss function so that when the loss is low, the network is doing what you want it to do on your problem. And then we backward the loss, use backpropogation to get the gradient and then we know how to tune the parameters to decrease the loss locally. But then we have to iterate that process many times in what's called a *gradient descent*. So we simply follow the gradient information and that minimises the loss. And that's pretty much it.
+
+This is a very tiny network with 41 parameters but you can build significantly more complicated neural nets with billions at this point almost trillions of parameters and it's a massive blob of neural tissue, simulated neural tissue roughly speaking, and you can make it do extremely complex problems and these neurons then have all kinds of very fascinating emergent properties when you try to make them do significantly hard problems. As in the case of GPT for example, we have massive amounts of text from the internet and we're trying to get a neural net to predict to take like a few words and try to predict the next word in a sequence that's the learning problem. It turns out that when you train this on all of internet the neural net actually has like really remarkable emergent properties but that neural net would have hundreds of billions of parameters, but it works on fundamentally the exact same principles. The neural net of course will be a bit more complex but otherwise the value in the gradient is there and would be identical and the gradient descent would be there and would be basically identical but people usually use slightly different updates, this is a very simple stochastic gradient descent update and the loss function would not be mean squared error they would be using something called the cross-entropy loss for predicting the next token so there's a few more details but fundamentally the neural network setup and neural network training is identical.
