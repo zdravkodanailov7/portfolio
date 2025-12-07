@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import RaycastingEngine from "@/components/raycasting-engine";
 import MdxRefresh from "@/components/mdx-refresh";
+import { ImageLightboxHandler } from "@/components/image-lightbox-handler";
 
 export async function generateStaticParams() {
   const posts = await getBlogPosts();
@@ -117,6 +118,7 @@ export default async function Blog({
           dangerouslySetInnerHTML={{ __html: post.source }}
         ></article>
       </section>
+      <ImageLightboxHandler />
     </>
   );
 }

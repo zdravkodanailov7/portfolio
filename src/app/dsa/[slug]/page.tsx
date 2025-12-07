@@ -6,6 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import MdxRefresh from "@/components/mdx-refresh";
+import { ImageLightboxHandler } from "@/components/image-lightbox-handler";
 
 export async function generateStaticParams() {
   const posts = await getDsaPosts();
@@ -115,6 +116,7 @@ export default async function Dsa({
           dangerouslySetInnerHTML={{ __html: post.source }}
         ></article>
       </section>
+      <ImageLightboxHandler />
     </>
   );
 }
