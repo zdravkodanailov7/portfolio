@@ -152,6 +152,29 @@ export const DATA = {
   ],
   projects: [
     {
+      title: "ZdravkoGrad",
+      href: "/projects/zdravkograd",
+      dates: "Dec 2025",
+      active: true,
+      description:
+        "A lightweight, scalar-valued autograd engine and neural network library built from scratch. Implements backpropagation over a dynamically built DAG, features a PyTorch-like API, and successfully trains MLPs on non-linear datasets.",
+      technologies: ["Python", "NumPy", "Math", "Graphviz", "Jupyter"],
+      links: [
+        {
+          type: "Source",
+          href: "https://github.com/zdravkodanailov7/zdravkograd",
+          icon: <Icons.github className="size-3" />,
+        },
+        {
+          type: "Blog",
+          href: "/projects/zdravkograd", // Or /blog/zdravkograd depending on your route
+          icon: <NotebookIcon className="size-3" />,
+        },
+      ],
+      image: "/zdravkograd.png", // Make sure to add a cool screenshot of the DAG or Decision Boundary here
+      video: "",
+    },
+    {
       title: "Raycasting Engine",
       href: "/projects/raycasting",
       dates: "Nov 2025",

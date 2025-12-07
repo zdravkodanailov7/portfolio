@@ -1,6 +1,6 @@
 ---
 title: "ZdravkoGrad"
-publishedAt: "2025-12-05"
+publishedAt: "2025-12-07"
 summary: "A scalar valued autograd engine and a neural net library on top of it with PyTorch-like API."
 ---
 
@@ -1731,3 +1731,519 @@ What are neural nets?
 Neural nets are these mathematical expressions, fairly simple mathematical expressions in the case of MLP's, that take input as the data as well as the weights and biases of the NN. So a mathematical expression for the forward pass followed by a loss function, and the loss function tries to measure the accuracy of the predictions. And usually your loss will be low when your predictions are matching your targets, so the network is behaving well. So we manipulate the loss function so that when the loss is low, the network is doing what you want it to do on your problem. And then we backward the loss, use backpropogation to get the gradient and then we know how to tune the parameters to decrease the loss locally. But then we have to iterate that process many times in what's called a *gradient descent*. So we simply follow the gradient information and that minimises the loss. And that's pretty much it.
 
 This is a very tiny network with 41 parameters but you can build significantly more complicated neural nets with billions at this point almost trillions of parameters and it's a massive blob of neural tissue, simulated neural tissue roughly speaking, and you can make it do extremely complex problems and these neurons then have all kinds of very fascinating emergent properties when you try to make them do significantly hard problems. As in the case of GPT for example, we have massive amounts of text from the internet and we're trying to get a neural net to predict to take like a few words and try to predict the next word in a sequence that's the learning problem. It turns out that when you train this on all of internet the neural net actually has like really remarkable emergent properties but that neural net would have hundreds of billions of parameters, but it works on fundamentally the exact same principles. The neural net of course will be a bit more complex but otherwise the value in the gradient is there and would be identical and the gradient descent would be there and would be basically identical but people usually use slightly different updates, this is a very simple stochastic gradient descent update and the loss function would not be mean squared error they would be using something called the cross-entropy loss for predicting the next token so there's a few more details but fundamentally the neural network setup and neural network training is identical.
+
+---
+
+Now it's time to move away from this simple backprop and actually tackle a real machine learning problem: **binary classification on a non-linear dataset**.
+
+We first start off by having our usual imports at the top!
+
+```python
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+%matplotlib inline
+```
+
+So in our previous problem we had this code:
+
+```python
+xs = [
+    [2.0, 3.0, -1],
+    [3.0, -1.0, 0.5],
+    [0.5, 1.0, 1.0],
+    [1.0, 1.0, -1.0]
+]
+ys = [1.0, -1.0, -1.0, 1.0]
+```
+
+There were 4 data points but deep learning needs **lots** of data, we don't want to type out 100 or 1000 points manually. So we use this code here:
+
+```python
+from sklearn.datasets import make_moons
+X, y = make_moons(n_samples=100, noise=0.1)
+y = y*2 - 1
+```
+
+What is `sklearn`? Scikit-learn is the industry standard machine learning library for python, It contains massive amounts of algorithms (like Random Forests, K-Means) and crucially **datasets**! It allows me to generate synthetic data to test my neural net.
+
+What is `make_moons`? It is a specific function inside `sklearn`. It generates a dataset that looks like two crescent moons interlocking. Something like this:
+
+![make_moons](/content/zdravkograd/make_moons.png)
+
+Why Moons? This is a specific stress test for classifiers. If you have two blobs of data far apart, you can draw a straight line between them. A "Linear Classifier" (like a single neuron) can solve that. But Moons dataset is **non-linear**, you cannot seperate the two moons with a single straight line. You need a curvy line. This will prove that our neural network is learning complexity.
+
+What about `y = y*2 - 1`? Make moons returns labels (`y`) that are `0` (for moon A) and `1` (for moon B). Our `zdravkograd` logic (and the SVM we will use later) prefers -1 and +1.
+
+So if `y = 0` then `0*2 - 1 = -1`, and if `y = 1` then `1*2 - 1 = 1`. This is  just a rescaling trick to get the targets into the format that our Loss function will like.
+
+---
+
+What is ReLU? In the context of zdravkograd we used `tanh`, this is a smooth S curve that squashes inputs between -1 and 1. ReLU stands for **Rectified Linear Unit**, sounds fancy but it's actually the most simple thing in the entire world of deep learning.
+
+`f(x) = max(0, x)`, if the input is negative (e.g. -5), the output is `0`. If the input is positive (e.g. 5) then the output is `5`.
+
+We have to switch to this from the `tanh` for simplicity and speed. Computing `tanh` requires exponentials and division. Whereas computing ReLU is just `if x > 0`, it is incredibly fast for the computer. 
+
+**The Vanishing Gradient Problem**: Tanh is *flat* at ends, if our neuron output is a high number (like 100) then the slope of tanh is basically 0. The gradient *vanishes* and the neuron stops learning. ReLU is linear for all positive numbers, the slope is always 1 so the gradient flows through perfectly.
+
+This is the `relu` function that we need to add to our engine:
+
+```python
+ def relu(self):
+    out = Value(0 if self.data < 0 else self.data, (self,), 'ReLU')
+
+    def _backward():
+        self.grad += (out.data > 0) * out.grad
+    out._backward = _backward
+
+    return out
+```
+
+We do this the same way we added the tanh and for reference this is what the graph of relu function looks like:
+
+![relu](/content/zdravkograd/relu.webp)
+
+In the code we first do the forward pass, `out = Value(0 if self.data < 0 else self.data, (self,), 'ReLU'), it's super simple, we just codify this formula: `f(x) = max(0, x)`. For the backward pass we need to know: what does the slope look like? Well for the positive side the line is just `y = x`, if you increase x by 1, y increases by 1, so the slope is 1. And for the left side there is no slope, so the gradient is 0. The derivative is a simple switch really.
+
+A new class needs to be added to our Neuron setup, you can see the new implementation in `nn.py`. We first need a new `Module` class:
+
+```python
+class Module:
+
+    def zero_grad(self):
+        for p in self.parameters():
+            p.grad = 0
+
+    def parameters(self):
+        return []
+```
+
+This is the parent class, notice that all the others now inherit this class (e.g. `class Neuron(Module):`), we do this so we keep it DRY (Don't Repeat Yourself). If we wanted to add a function like `zero_grad`, we would have to copy paste it into Neuron and the other classes, now we write it once and everyone gets it for free. `zero_grad` is now also its own function for code simplicity.
+
+The updated Neuron class:
+
+```python
+class Neuron(Module):
+
+    def __init__(self, nin, nonlin=True):
+        self.w = [Value(random.uniform(-1,1)) for _ in range(nin)]
+        self.b = Value(0)
+        self.nonlin = nonlin
+
+    def __call__(self, x):
+        act = sum((wi*xi for wi,xi in zip(self.w, x)), self.b)
+        return act.relu() if self.nonlin else act
+```
+
+The bias is now 0, this is standard practice, we want our neurons to be "neutral" at the start, we only want it to fire if the weights find a pattern in the input and random bias adds unnecessary noise at the beginning.
+
+The `nonlin` flag has also been added, if the output goes through the `act.relu()` this is set to true, but if the output is just `act` then it's set to false, because that would keep it a Linear Neuron.
+
+The updated `Layer` class:
+
+```python
+class Layer(Module):
+
+    def __init__(self, nin, nout, **kwargs):
+        self.neurons = [Neuron(nin, **kwargs) for _ in range(nout)]
+```
+
+We need this new kwargs special attribute which stands for **keyword arguments**, since `Layer` creates Neurons, we need a way to pass down that `nonlin` flag through the layer down to the neuron. So with it, if i call `Layer(2, 3, nonlin=False)`, python packs `nonlin=False` into kwargs. Then the `Neuron(nun, **kwargs)` unpacks it, effectively calling `Neuron(nin, nonlin=False)`.
+
+And finally the updated `__repr__` method, this is purely for printing but this updated one:
+
+```python
+def __repr__(self):
+    return f"{'ReLU' if self.nonlin else 'Linear'}Neuron({len(self.w)})"
+```
+
+Allows us to debug the architecture just by printing the object. This has no effect on the math.
+
+---
+
+Now what is SVM and Hinge Loss? SVM stands for **Support Vector Machine**, it is a classic machine learning algorithm (pre deep learning). The goal of an SVM is to find the "widest street" (margin) that separates two classes of data.
+
+In zdravkograd I used mean squared error `(y_pred - y_target)**2`, this will try to make the prediction exactly match the target number. If the target is 1 and the prediction is 1.5, MSE tells it to go back to 1.
+
+SVM (Hinge Loss) doesn't care about "exactness", it cares about **correctness** and **confidence**.
+
+This is the formula: `L = max(0, 1 - (y_target * y_pred))`.
+
+If target is 1 and prediction is 1.5, hinge loss says: "Great! You are correct (positive) and confident (greater than 1). Loss is 0, carry on."
+
+The code:
+
+```python
+losses = [(1 + -yi*scorei).relu() ...]
+```
+
+This is the zdravkograd implementation of hinge loss, `yi` is for -1 or 1, `scorei` is the model output. If `yi` and `scorei` have the same sign (correct prediction) then `yi*scorei` is positive. We want `yi*scorei` to be greater than 1. So `(1 - (yi*scorei))` measures how much we failed to beat the margin of 1. `.relu()` ensures that if we did beat the margin (negative result inside the brackets) the loss is clamped at 0.
+
+---
+
+Regularisation: L2 Penalty.
+
+```python
+alpha = 1e-4
+reg_loss = alpha * sum((p*p for p in model.parameters()))
+```
+
+This is called L2 Regularisation (or Weight Decay). Imagine the neural net finds a solution where one weight is `10,000` and another is `-9,999`. They almost cancel out but the math gets unstable. The decision boundary becomes incredibly jagged and weird to fit specific noisy points. 
+
+So what we do is we add a term to the loss function "The sum of all the weights squared.".
+
+The optimiser (backprop) now has two goals:
+- Make the classification correct (data loss)
+- Make all the weights as small as possible (reg loss)
+
+`alpha` (1e-4) is the strength, it says to the model that prediction accuracy is 10,000x more important than small weights, but please try to keep the weights small if you can."
+
+This results in a **smoother** decision boundary.
+
+---
+
+In the problem we previously solved using zdravkograd we passed the *entire* dataset (all 4 points) into the forward pass every single step. This is fine for 4 points, but what if you had 1,000,000 images? You cannot fit 1 million images into memory all at once.
+
+**Batching** means we randomly select a small chunk (e.g. 32 items) of data:
+- Calculate loss on those 32
+- Update the weights
+- Pick a new 32
+- Repeat
+
+This is called **Stochastic Gradient Descent (SGD)**. It is noisy (because you only see a few examples at a time), but it is much faster and allows us to train on massive datasets. In this specific demo, batch size defaults to `None`, so we are actually using the whole dataset, but the code is setup to handle batches if we wanted to.
+
+---
+
+Ok now that we have our library zdravkograd and our dataset understanding, let's build the actaul training script and break it down step by step.
+
+```python
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+%matplotlib inline
+```
+
+Of course we first start with our imports.
+
+```python
+from zdravkograd.engine import Value
+from zdravkograd.nn import Neuron, Layer, MLP
+```
+
+We will also bring in `Value`, `Neuron`, `Layer` and `MLP` from the library we just built.
+
+```python
+np.random.seed(1337)
+random.seed(1337)
+```
+
+Now these two lines, in machine learning we use random numbers constantly, to initialise weights, to shuffle data, etc. If we just let the computer pick random numbers then every time we run this notebook, we would get slightly different results. That makes debugging a nightmare. By "seeding" the random number generator, we are telling the computer to be random but be random in the exact same way every time. This ensures that if you run the code, you will get the exact same results that I do.
+
+Next up, the data.
+
+```python
+# make up a dataset
+
+from sklearn.datasets import make_moons, make_blobs
+X, y = make_moons(n_samples=100, noise=0.1)
+
+y = y*2 - 1 # make y be -1 or 1
+# visualize in 2D
+plt.figure(figsize=(5,5))
+plt.scatter(X[:,0], X[:,1], c=y, s=20, cmap='jet')
+```
+
+Here we generate the "Moons" dataset, as mentioned before, we shift `y` to be -1 or 1 to play nice with our SVM loss. Finally we plot it to see what we are dealing with.
+
+![make_moonds.png](/content/zdravkograd/make_moonds.png)
+
+As you can see, this is the binary classification problem. We have red dots (class -1) and blue dots (class +1). The goal of the neural net is to draw a boundary that separates them. Because they are swirling into each other, a straight line won't cut it, we need a curve.
+
+Now let's initialise our model.
+
+```python
+# initialise a model 
+model = MLP(2, [16, 16, 1]) # 2-layer neural network
+print(model)
+print("number of parameters", len(model.parameters()))
+```
+
+Here we instantiate the brain. `MLP(2, [16, 16, 1])` means:
+- Input: 2, because our data points have two coordinates (x, y)
+- Hidden Layers: [16, 16], we have two layers of processing, each with 16 neurons. This is the "capacity" of the network
+- Output: 1, the network outputs a single scalar score
+
+```python
+MLP of [Layer of [ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2), ReLUNeuron(2)], Layer of [ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16), ReLUNeuron(16)], Layer of [LinearNeuron(16)]]
+number of parameters 337
+```
+
+This output tells us that we have **337 parameters**. That means there are 337 `Value` objects (weights and biases) inside this object that act as knobs we can turn to change the predictions.
+
+Next up, the loss function.
+
+```python
+# loss function
+def loss(batch_size=None):
+    
+    # inline DataLoader :)
+    if batch_size is None:
+        Xb, yb = X, y
+    else:
+        ri = np.random.permutation(X.shape[0])[:batch_size]
+        Xb, yb = X[ri], y[ri]
+    inputs = [list(map(Value, xrow)) for xrow in Xb]
+    
+    # forward the model to get scores
+    scores = list(map(model, inputs))
+    
+    # svm "max-margin" loss
+    losses = [(1 + -yi*scorei).relu() for yi, scorei in zip(yb, scores)]
+    data_loss = sum(losses) * (1.0 / len(losses))
+    # L2 regularization
+    alpha = 1e-4
+    reg_loss = alpha * sum((p*p for p in model.parameters()))
+    total_loss = data_loss + reg_loss
+    
+    # also get accuracy
+    accuracy = [(yi > 0) == (scorei.data > 0) for yi, scorei in zip(yb, scores)]
+    return total_loss, sum(accuracy) / len(accuracy)
+
+total_loss, acc = loss()
+print(total_loss, acc)
+```
+
+This is the most dense block of code but it is the heart of the operation.
+
+```python
+# loss function
+def loss(batch_size=None):
+    
+    # inline DataLoader :)
+    if batch_size is None:
+        Xb, yb = X, y
+    else:
+        ri = np.random.permutation(X.shape[0])[:batch_size]
+        Xb, yb = X[ri], y[ri]
+```
+
+First we handle the data loading, if `batch_size` is `None`, we use the whole dataset. If it set like `32`, we randomly shuffle the data and pick a small batch. This effectively implements SGD.
+
+```python
+inputs = [list(map(Value, xrow)) for xrow in Xb]
+```
+
+This line is the bridge. `Xb` is a numpy array of numbers. Our engine doesn't know what numpy is. So we iterate through the numpy array and wrap every single number into a `Value` object. Now our data is part of the computational graph.
+
+```python
+    # forward the model to get scores
+    scores = list(map(model, inputs))
+    
+    # svm "max-margin" loss
+    losses = [(1 + -yi*scorei).relu() for yi, scorei in zip(yb, scores)]
+    data_loss = sum(losses) * (1.0 / len(losses))
+```
+
+We perform the forward pass (`model(inputs)`) and then calculate the hinge loss. We want `yi * scorei` to be > 1. If it't not we incur a penalty (loss). We average this loss across the batch.
+
+```python
+# L2 regularization
+    alpha = 1e-4
+    reg_loss = alpha * sum((p*p for p in model.parameters()))
+    total_loss = data_loss + reg_loss
+```
+
+Here is the regularisation I mentioned earlier. We square every single one of those 337 parameters and sum them up. We multiply by a tiny number `alpha` (0.0001). This adds a small pressure to the loss function that pulls all the weights towards zero. This keeps the model simple and prevents overfitting.
+
+```python
+# also get accuracy
+    accuracy = [(yi > 0) == (scorei.data > 0) for yi, scorei in zip(yb, scores)]
+    return total_loss, sum(accuracy) / len(accuracy)
+```
+
+Finally we calculate the accuracy just for our own eyes (is the sign of the prediction matching the sign of the label?) and return the total loss.
+
+Next up is the optimisation loop:
+
+```python
+# optimization
+for k in range(100):
+    
+    # forward
+    total_loss, acc = loss()
+    
+    # backward
+    model.zero_grad()
+    total_loss.backward()
+    
+    # update (sgd)
+    learning_rate = 1.0 - 0.9*k/100
+    for p in model.parameters():
+        p.data -= learning_rate * p.grad
+    
+    if k % 1 == 0:
+        print(f"step {k} loss {total_loss.data}, accuracy {acc*100}%")
+```
+
+We run the loop 100 times:
+1. **Forward**: Compute the loss.
+2. **Zero Grad**: Reset the gradients to 0 (fixing that bug we found earlier in the previous problem)
+3. **Backward**: `total_loss.backward()` propagates the gradients all the way back to the inputs.
+4. **Update**: We nudge the data:
+    - Notice the learning rate calculation: `1.0 - 0.9*k/100`
+    - When `k=0`, rate is `1.0`, high speed
+    - When `k=99` rate is `0.1`, low speed
+    - This is called **Learning Rate Decay**, we take big steps early to get close, then small steps late to settle in.
+
+The Results, if we take a look at the printout we can see the magic happen:
+
+```python
+step 0 loss 0.8958441028683222, accuracy 50.0%
+step 1 loss 1.723590533697202, accuracy 81.0%
+step 2 loss 0.7429006313851131, accuracy 77.0%
+step 3 loss 0.7705641260584202, accuracy 82.0%
+step 4 loss 0.3692793385976538, accuracy 84.0%
+step 5 loss 0.31354548191852194, accuracy 86.0%
+step 6 loss 0.2814234349772435, accuracy 89.0%
+step 7 loss 0.26888733313983904, accuracy 91.0%
+step 8 loss 0.2567147286057417, accuracy 91.0%
+step 9 loss 0.27048625516379227, accuracy 91.0%
+step 10 loss 0.24507023853658036, accuracy 91.0%
+step 11 loss 0.25099055297915035, accuracy 92.0%
+step 12 loss 0.21560951851922946, accuracy 91.0%
+step 13 loss 0.23090378446402735, accuracy 93.0%
+step 14 loss 0.2015215122789945, accuracy 92.0%
+step 15 loss 0.22574506279282222, accuracy 93.0%
+step 16 loss 0.1944798759620411, accuracy 92.0%
+step 17 loss 0.21089496199246355, accuracy 93.0%
+step 18 loss 0.15983077356303607, accuracy 94.0%
+step 19 loss 0.18453748746883916, accuracy 93.0%
+step 20 loss 0.18977522856087645, accuracy 91.0%
+step 21 loss 0.1907270404257964, accuracy 93.0%
+step 22 loss 0.11733695088756488, accuracy 97.0%
+step 23 loss 0.12173524408232453, accuracy 95.0%
+step 24 loss 0.12615712612770458, accuracy 95.0%
+step 25 loss 0.1604909778080167, accuracy 95.0%
+step 26 loss 0.18747197705245816, accuracy 92.0%
+step 27 loss 0.16741837891059405, accuracy 95.0%
+step 28 loss 0.09586583491455393, accuracy 97.0%
+step 29 loss 0.0877878370742092, accuracy 96.0%
+step 30 loss 0.11731297569011843, accuracy 95.0%
+step 31 loss 0.09340146460619843, accuracy 97.0%
+step 32 loss 0.12454454903103443, accuracy 95.0%
+step 33 loss 0.07984002652777274, accuracy 97.0%
+step 34 loss 0.07727519232921665, accuracy 97.0%
+step 35 loss 0.07661250143094492, accuracy 98.0%
+step 36 loss 0.10610492379198357, accuracy 96.0%
+step 37 loss 0.09062808429265984, accuracy 99.0%
+step 38 loss 0.10671887043036923, accuracy 95.0%
+step 39 loss 0.05225659921975843, accuracy 98.0%
+step 40 loss 0.060160098952344754, accuracy 100.0%
+step 41 loss 0.0859672453333393, accuracy 96.0%
+step 42 loss 0.051121079431796, accuracy 99.0%
+step 43 loss 0.05240142401642821, accuracy 97.0%
+step 44 loss 0.045306841790015887, accuracy 100.0%
+step 45 loss 0.07211073370655086, accuracy 97.0%
+step 46 loss 0.03334238651310231, accuracy 99.0%
+step 47 loss 0.03143222795751127, accuracy 100.0%
+step 48 loss 0.036585367471115, accuracy 99.0%
+step 49 loss 0.048291393823903274, accuracy 99.0%
+step 50 loss 0.09875114765619616, accuracy 96.0%
+step 51 loss 0.054490639658754406, accuracy 99.0%
+step 52 loss 0.033926794357083206, accuracy 100.0%
+step 53 loss 0.05261517263568435, accuracy 97.0%
+step 54 loss 0.03250295251424914, accuracy 99.0%
+step 55 loss 0.028883273872078348, accuracy 100.0%
+step 56 loss 0.04139151104027232, accuracy 98.0%
+step 57 loss 0.018987407426128537, accuracy 100.0%
+step 58 loss 0.02523833523883735, accuracy 100.0%
+step 59 loss 0.02079656521341902, accuracy 100.0%
+step 60 loss 0.032597111578102224, accuracy 99.0%
+step 61 loss 0.017863351693480346, accuracy 100.0%
+step 62 loss 0.02300871783221166, accuracy 100.0%
+step 63 loss 0.022079325463581566, accuracy 100.0%
+step 64 loss 0.02943291785352959, accuracy 99.0%
+step 65 loss 0.016251514644092007, accuracy 100.0%
+step 66 loss 0.02846853448326437, accuracy 99.0%
+step 67 loss 0.013994365546208726, accuracy 100.0%
+step 68 loss 0.01555234484365152, accuracy 100.0%
+step 69 loss 0.03389119946160163, accuracy 99.0%
+step 70 loss 0.014229870065926907, accuracy 100.0%
+step 71 loss 0.0132552815832855, accuracy 100.0%
+step 72 loss 0.01230027759002207, accuracy 100.0%
+step 73 loss 0.012676052498356034, accuracy 100.0%
+step 74 loss 0.020593811955954732, accuracy 100.0%
+step 75 loss 0.011845398205364427, accuracy 100.0%
+step 76 loss 0.016012697472883176, accuracy 100.0%
+step 77 loss 0.025458360239222075, accuracy 100.0%
+step 78 loss 0.014382930289661885, accuracy 100.0%
+step 79 loss 0.011698962425817975, accuracy 100.0%
+step 80 loss 0.012318500800515825, accuracy 100.0%
+step 81 loss 0.014121117031464205, accuracy 100.0%
+step 82 loss 0.011664591962446203, accuracy 100.0%
+step 83 loss 0.011589314549188755, accuracy 100.0%
+step 84 loss 0.010990299347735226, accuracy 100.0%
+step 85 loss 0.01098922672069161, accuracy 100.0%
+step 86 loss 0.010988193757655071, accuracy 100.0%
+step 87 loss 0.010987200447388705, accuracy 100.0%
+step 88 loss 0.010986246779084925, accuracy 100.0%
+step 89 loss 0.010985332742365276, accuracy 100.0%
+step 90 loss 0.010984458327280174, accuracy 100.0%
+step 91 loss 0.010983623524308862, accuracy 100.0%
+step 92 loss 0.010982828324359071, accuracy 100.0%
+step 93 loss 0.010982072718767001, accuracy 100.0%
+step 94 loss 0.010981356699297042, accuracy 100.0%
+step 95 loss 0.010980680258141723, accuracy 100.0%
+step 96 loss 0.010980043387921504, accuracy 100.0%
+step 97 loss 0.010979446081684675, accuracy 100.0%
+step 98 loss 0.010978888332907229, accuracy 100.0%
+step 99 loss 0.010978370135492717, accuracy 100.0%
+```
+
+At step 0 accuracy is 50%, which is random guessing. By step 1, it jumps to 81%, the "big step" learning rate working hard. By step 99 we have reached 100% accuracy. The loss has plummeted to near zero.
+
+But numbers are boring. Let's see what the neural net is actually thinking, we can visualise the **decision boundary**.
+
+```python
+# visualise decision boundary
+
+h = 0.25
+x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
+y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
+xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
+                     np.arange(y_min, y_max, h))
+Xmesh = np.c_[xx.ravel(), yy.ravel()]
+inputs = [list(map(Value, xrow)) for xrow in Xmesh]
+scores = list(map(model, inputs))
+Z = np.array([s.data > 0 for s in scores])
+Z = Z.reshape(xx.shape)
+
+fig = plt.figure()
+plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral, alpha=0.8)
+plt.scatter(X[:, 0], X[:, 1], c=y, s=40, cmap=plt.cm.Spectral)
+plt.xlim(xx.min(), xx.max())
+plt.ylim(yy.min(), yy.max())
+```
+
+This code creates a mesh (a grid) covering the whole plot. It asks the model to make a prediction for every single pixel in that grid. If the model says "Positive", we colour it in a shade of blue, if "Negative", a shade of red.
+
+![binary-classification-visualised.png](/content/zdravkograd/binary-classification-visualised.png)
+
+Look at that! It's not a straight line! It is a beautiful non-linear curve that perfectly hugs the two moons. The neural net has "understood" the geometry of the data.
+
+---
+
+### Conclusion
+
+I started with a blank jupyter notebook. I defined a `Value` object that wraps a single number. Taught that object how to  add and multiply and crucially how to calculate its own local derivative. I chained these objects together into `Neurons`, `Layers` and `MLPs`.
+
+Then, I threw a complex, non-linear classification problem at it. Defined a loss function and then just let the gradients flow.
+
+The result is a working Deep Neural Network.
+
+This `zdravkograd` engine is mathematically, "exactly" what PyTorch is. PyTorch uses Tensors (arrays) instead of scalars for efficiency, and it uses C++/CUDA for speed, but the *soul* of the software is identical. It is just a DAG (Directed Acyclic Graph) of operations that knows how to chain rule its way backwards.
+
+I have fully demystified deep learning. It is not magic, it is just gradients and chain rule all the way down.
+
+Thank you for reading :)
