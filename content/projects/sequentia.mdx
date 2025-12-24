@@ -1,0 +1,100 @@
+---
+title: "Sequentia"
+publishedAt: "2025-12-07"
+summary: "to be determined"
+---
+
+The goal of sequentia is to simply make more of the things that you give it. For example, names.txt is an example dataset, it is just a large dataset of names, to be specific 32 thousand names. If we train sequentia on this dataset it should learn to make more of things like this, in this particular case, more things that sound name like but are actually unique names. Here are some example generations from sequentia:
+
+```python
+dontell
+khylum
+camatena
+aeriline
+najlah
+sherrith
+ryel
+irmi
+taislee
+mortaz
+akarli
+maxfelynn
+biolett
+zendy
+laisa
+halliliana
+goralynn
+brodynn
+romima
+chiyomin
+loghlyn
+melichae
+mahmed
+irot
+helicha
+besdy
+ebokun
+lucianno
+```
+
+These all sound name like. Under the hood, sequentia is a character level language model, so it is treating every single line in names.txt as an example and within each example it is treating them as sequences of individual characters. That is the level on which sequentia is built on, hence the name (latin for sequence).
+
+Sequentia implements a large number of character level language model:
+- Bigram
+- Bag of words
+- MLP
+- RNN
+- GRU
+- Transformer
+
+In fact the transformer that I will build will be basically the equivalent transformer to GPT 2, so it's kind of a big deal as it is a modern network.
+
+---
+
+So like before with zdravkograd, I will start with a completely blank jupyter notebook.
+
+First let's load up the dataset (names.txt)
+
+```python
+words = open('names.txt', 'r').read().splitlines()
+```
+
+So lets open up the file in read mode and read in everything into a massive string, and because it's a massive string initially we need to split it into the individual words as a python list of strings.
+
+So if we look at the first 10 words with `words[:10]` we see this list:
+
+```python
+['emma',
+ 'olivia',
+ 'ava',
+ 'isabella',
+ 'sophia',
+ 'charlotte',
+ 'mia',
+ 'amelia',
+ 'harper',
+ 'evelyn']
+ ```
+
+Let's also quickly take a look at the total number of words with `len(wods)` which comes out to be `32033`.
+
+Also let's see what is for example the shortest word with this code:
+
+```python
+min(len(word) for word in words)
+```
+which comes out to be `2`.
+
+And the longest word with:
+```python
+max(len(word) for word in words)
+```
+which is `15`.
+
+Ok, now, as I mentioned, a character level language model is predicting the next character in a sequence given already some concrete sequence of characters before it.
+
+So if you think about it, isabella for example is like quite a few examples packed into that single word. What is then, the existance of the word isabella in this dataset really telling us? It tells us that the character i is a likely character to come first in a sequence of a name. The character s is likely to come after i, the character a is likely to come after 'is', the character b is likely to come after 'isa' and so on, until finally the character a is likely to come after 'isabell'. But there is actually one more example actually packed in here and that is that after the characters 'isabella' the word is likely to end. So that is one more sort of explicit piece of information that we have here. And so there is actually a lot packed into a single individual word in terms of the statistical structure of what's likely to follow in these character sequences. And then of course we don't have a single word but 32 thousand of them, so there is a lot of structure here to model.
+
+Now first what I will do is build a Bigram language model. Now in a bigram language model, we are always working with just 2 characters at a time, so we are only looking at one character that we have given, and we are trying to predict the next character in the sequence.
+
+So it's a very simple and weak language model, but it's a great place to start

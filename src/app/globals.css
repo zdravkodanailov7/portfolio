@@ -151,6 +151,24 @@ code[data-language] {
   font-size: 0.85rem;
 }
 
+@keyframes christmas-glow {
+  from {
+    filter: drop-shadow(0 0 5px rgba(255, 0, 0, 0.5)) drop-shadow(0 0 10px rgba(255, 0, 0, 0.3));
+    color: rgb(255, 0, 0);
+  }
+  to {
+    filter: drop-shadow(0 0 20px rgba(255, 0, 222, 1)) drop-shadow(0 0 30px rgba(255, 0, 222, 0.6));
+    color: rgb(255, 0, 222);
+  }
+}
+
+.christmas-glow {
+  animation: christmas-glow 1.5s ease-in-out infinite alternate;
+}
+
+.christmas-glow svg {
+  animation: christmas-glow 1.5s ease-in-out infinite alternate;
+}
 
 /*
 .prose pre {

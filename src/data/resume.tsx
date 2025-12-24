@@ -1,5 +1,5 @@
 import { Icons } from "@/components/icons";
-import { CodeIcon, FolderIcon, HomeIcon, NotebookIcon, PencilLineIcon } from "lucide-react";
+import { CodeIcon, FolderIcon, Gift, HomeIcon, NotebookIcon, PencilLineIcon } from "lucide-react";
 
 export const DATA = {
   name: "Zdravko Danailov",
@@ -39,6 +39,7 @@ export const DATA = {
     { href: "/blog", icon: PencilLineIcon, label: "Blog" },
     { href: "/projects", icon: FolderIcon, label: "Projects" },
     { href: "/dsa", icon: CodeIcon, label: "DSA" },
+    { href: "/christmas-mission", icon: Gift, label: "Christmas Mission" },
   ],
   contact: {
     email: "zdravkodanailov7@gmail.com",

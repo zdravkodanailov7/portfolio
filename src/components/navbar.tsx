@@ -27,7 +27,10 @@ export default function Navbar() {
                     "size-12"
                   )}
                 >
-                  <item.icon className="size-4" />
+                  <item.icon className={cn(
+                    "size-4",
+                    item.href === "/christmas-mission" && "christmas-glow"
+                  )} />
                 </Link>
               </TooltipTrigger>
               <TooltipContent>

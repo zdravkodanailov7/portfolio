@@ -1,8 +1,8 @@
-import Navbar from "@/components/navbar";
+import NavbarWrapper from "@/components/navbar-wrapper";
+import LayoutWrapper from "@/components/layout-wrapper";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DATA } from "@/data/resume";
-import { cn } from "@/lib/utils";
 import type { Metadata } from "next";
 import { Inter as FontSans } from "next/font/google";
 import "./globals.css";
@@ -56,15 +56,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className={fontSans.variable}>
-    <body
-      className={cn(
-        "min-h-screen bg-background font-sans antialiased max-w-2xl mx-auto py-12 sm:py-24 px-6",
-      )}
-      >
+    <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="light">
           <TooltipProvider delayDuration={0}>
-            {children}
-            <Navbar />
+            <LayoutWrapper>
+              {children}
+            </LayoutWrapper>
+            <NavbarWrapper />
           </TooltipProvider>
         </ThemeProvider>
         <Analytics />
