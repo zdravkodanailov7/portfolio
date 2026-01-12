@@ -152,6 +152,29 @@ export const DATA = {
   ],
   projects: [
     {
+      title: "Sequentia: Part 1",
+      href: "/projects/sequentia",
+      dates: "Jan 2026",
+      active: true,
+      description:
+        "A character-level language model built from scratch that generates name-like sequences. Implements bigram models through both counting and gradient-based optimisation, exploring the foundations of neural language modelling with PyTorch.",
+      technologies: ["Python", "PyTorch", "NumPy", "Matplotlib", "Jupyter"],
+      links: [
+        {
+          type: "Source",
+          href: "https://github.com/zdravkodanailov7/sequentia",
+          icon: <Icons.github className="size-3" />,
+        },
+        {
+          type: "Blog",
+          href: "/projects/sequentia",
+          icon: <NotebookIcon className="size-3" />,
+        },
+      ],
+      image: "/content/sequentia/figure-2.png",
+      video: "",
+    },
+    {
       title: "ZdravkoGrad",
       href: "/projects/zdravkograd",
       dates: "Dec 2025",

@@ -1,6 +1,6 @@
 ---
-title: "Sequentia"
-publishedAt: "2026-01-08"
+title: "Sequentia: Part 1"
+publishedAt: "2026-01-12"
 summary: "to be determined"
 ---
 
@@ -1284,4 +1284,270 @@ Something magical happened when we ran this, PyTorch, just like zdravkograd, whe
 W.data += -0.1 * W.grad
 ```
 
-So we update the tensor like that. So if we print the loss right now we see `3.7693049907684326`, we have also now updated `W` so if I recalc the forward pass the loss should be slightly lower. So `3.7693049907684326` goes to `3.7492129802703857`, and repeating that is gradient descent. When we achieve a low loss that means the network is assigning high probabilities to the correct next character
+So we update the tensor like that. So if we print the loss right now we see `3.7693049907684326`, we have also now updated `W` so if I recalc the forward pass the loss should be slightly lower. So `3.7693049907684326` goes to `3.7492129802703857`, and repeating that is gradient descent. When we achieve a low loss that means the network is assigning high probabilities to the correct next character.
+
+---
+
+Ok now let's rearrange everything and put it all together one last time:
+
+```python
+# create the dataset
+xs, ys = [], []
+for w in words[:1]:
+  chs = ['.'] + list(w) + ['.']
+  for ch1, ch2 in zip(chs, chs[1:]):
+    ix1 = stoi[ch1]
+    ix2 = stoi[ch2]
+    xs.append(ix1)
+    ys.append(ix2)
+xs = torch.tensor(xs)
+ys = torch.tensor(ys)
+num = xs.nelement()
+print('number of examples: ', num)
+
+# initialize the 'network'
+g = torch.Generator().manual_seed(2147483647)
+W = torch.randn((27, 27), generator=g, requires_grad=True)
+```
+
+So here is where we construct our dataset of bigrams, you see that we are still only iterating over the first word, emma, we will change that in a second. I added a `num` that counts the number of elements in `xs`, so that we can see explicitly that number of examples if 5, because we are currently just working with emma.
+
+```python
+# gradient descent
+for k in range(10):
+
+    # forward pass
+    xenc = F.one_hot(xs, num_classes=27).float() # input to the network: one-hot encoding
+    logits = xenc @ W # predict log-counts
+    counts = logits.exp() # counts, equivalent to N
+    probs = counts / counts.sum(1, keepdims=True) # probabilities for next character
+    loss = -probs[torch.arange(num), ys].log().mean()
+    print(loss.item())
+
+    # backward pass
+    W.grad = None
+    loss.backward()
+
+    # update
+    W.data += -0.1 * W.grad
+```
+
+And then here I added a loop of exactly what we had before, so we had 10 iterations of gradient descent (forward pass, backward pass and then update). And so running these two cells, initialisation and gradient descent gives us:
+
+```python
+3.7693049907684326
+3.7492129802703857
+3.7291626930236816
+3.7091546058654785
+3.6891887187957764
+3.66926646232605
+3.6493873596191406
+3.6295523643493652
+3.6097614765167236
+3.5900158882141113
+```
+
+It gives us some improvement on the loss function. But now I want to use all the words, and there's not 5 but rather 228146 bigrams now, and all the code we wrote doesn't care if theres 5 bigrams or 228146 bigrams, so it should work without any issues.
+
+```python
+3.758953094482422
+3.758040189743042
+3.757127523422241
+3.756216049194336
+3.755305767059326
+3.754396915435791
+3.753488779067993
+3.7525813579559326
+3.7516753673553467
+3.750770330429077
+```
+
+And so we get these results, we are decreasing very slightly so actually we can probably afford a larger learning rate like 1:
+
+```python
+3.749866485595703
+3.6621599197387695
+3.5838623046875
+3.513427972793579
+3.44982647895813
+3.392310619354248
+3.340266227722168
+3.293151378631592
+3.2504563331604004
+3.211688995361328
+```
+
+Ok we can probably afford an even larger learning rate of 10:
+
+```python
+3.176388740539551
+3.144124746322632
+3.1145212650299072
+3.0872490406036377
+3.0620319843292236
+3.0386369228363037
+3.0168704986572266
+2.996567964553833
+2.977591037750244
+2.9598190784454346
+```
+
+What if we bump it up to 50:
+
+```python
+3.758953094482422
+3.371079444885254
+3.1540327072143555
+3.0203664302825928
+2.9277069568634033
+2.8604001998901367
+2.809727191925049
+2.7701010704040527
+2.738072633743286
+2.711496114730835
+```
+
+It's still working! Even 50 seems to work. So let's re-initialise and let's run 100 iterations:
+
+```python
+3.758953094482422
+3.371079444885254
+3.1540327072143555
+3.0203664302825928
+2.9277069568634033
+2.8604001998901367
+2.809727191925049
+2.7701010704040527
+2.738072633743286
+2.711496114730835
+2.6890029907226562
+2.6696884632110596
+2.6529300212860107
+2.638277053833008
+2.6253879070281982
+2.613990306854248
+2.60386323928833
+2.5948216915130615
+2.586712121963501
+2.579403877258301
+2.572789192199707
+2.5667762756347656
+2.5612881183624268
+2.5562589168548584
+2.551633596420288
+...
+2.4735772609710693
+2.4733383655548096
+2.47310471534729
+2.4728763103485107
+```
+
+Some pretty good losses, let me run 100 more (also what is the number we are expecting?):
+
+```python
+2.4726529121398926
+2.4724342823028564
+2.4722204208374023
+2.472011089324951
+2.4718058109283447
+2.4716055393218994
+2.471409320831299
+2.4712166786193848
+2.4710280895233154
+2.47084379196167
+2.4706625938415527
+2.4704854488372803
+2.470311403274536
+2.4701414108276367
+2.4699742794036865
+2.4698104858398438
+2.4696500301361084
+2.4694924354553223
+2.4693379402160645
+2.4691860675811768
+2.4690370559692383
+2.468891143798828
+2.468747615814209
+2.46860671043396
+2.468468427658081
+...
+2.462538242340088
+2.462489128112793
+2.4624407291412354
+2.462392807006836
+```
+
+Well we are expecting to get something around what we had originally actually. So all the way back, if you remember in the beginning when we optimised just by counting our loss was roughly 2.47... after we added smoothing, and so that's actually roughly the vicinity of what we expect to achieve, but before we achieved it by counting and here we are trying to achieve it with gradient based optimisation rather than counting. So we come to about 2.46.
+
+That makes sense because fundamentally we are not taking in any additional information, we are still just taking in the previous character and trying to predict the next one but instead of doing it explicitly by counting and normalising we are doing it with gradient based learning. It just so happens that the explicit approach happens to very well optimise the loss function without any need for gradient based optimisation because the setup for bigram language models is so simple that we can just afford to estimate those probabilities directly and maintian them in a table.
+
+However, the gradient based approach is significantly more flexible, so we've actually gained a lot because now we can expand this approach and complexify the neural network. Currently we are just taking a single character and feeding into a neural net and this neural net is extremely simple but we are about to iterate on this substantially. We will be taking multiple previous characters and we are going to be feeding them into increasingly more complex neural nets but fundamentally the output of the neural net will always just be logits and those logits will go through the exact same transformation. We will take them through a softmax, calculate the loss function and the negative log likelihood and then do gradient based optimisation.
+
+So actually, as we complexify the neural nets and work all the way up to transformers none of this code will really fundamentally change, the only thing that will change is the way we do the forward pass where we take in some previous characters and calculate logits for the next character in a sequence. That part will become more complex but we will use the same machinery to optimise it. It's not obvious how we would have extended the initial bigram approach in the case where there are many more characters at the input because eventually the tables would get way too large because there's way too many combinations of what the previous characters could be. If you only have one previous character we can just keep everything in a table, but if you have the last 10 characters of an input we can't actually keep everything in a table anymore, so it is fundamentally an unscalable approach. The NN approach is significantly more scalable and it's something that we can improve on over time.
+
+---
+
+I also want to point out 2 more things.
+
+Number 1, if you take a look at this line of code from above:
+
+```python
+logits = xenc @ W # predict log-counts
+```
+
+Notice that this `xenc` here is made up of one hot vectors and this is multiplied this `W` matrix, we think of this as multiple neurons being forwarded in a fully connected manner. But actually what's happening here is if you have a one hot vector here that has a 1 in say the 5th dimension then because of the way the matrix multiplication works, multiplying that one hot vector with W, actually ends up plucking out the 5th row of W. Logits would become just the 5th row of W. The interesting thing is that that is exactly what was happening before, remember all the way before we had a bigram, we took the first character and that first character indexed into a row of our massive table and that row gave us the probability distribution for the next character. So te first character was used as a lookup into a matrix to get the probability distribution. That is exactly what is happening now too, because we are taking the index, encoding it as one hot and multiplying it by W, so logits literally becomes the appropriate row of W and that gets, just as before, exponentiated to get the counts and then normalised and becomes probabilities.
+
+So `W` is literally the same as the massive table array we had earlier, but W is the log counts not the counts, so it's more precise to say that W exponentiated is that table. But that previous table was filled in by counting and by populating the counts of bigrams but in the gradient based framework we initialise it randomly and we let the loss guide us to arrive at the exact same array, so the previous table is basically the array `W` at the end of optimisation except we arrived at it piece by piece by following the loss, and that's why we also obtain the same loss function at the end.
+
+The second note is, remember the smoothing where we added fake counts to our counts in order to smooth out and make more uniform distributions of our probabilities and that prevented us from assigning 0 probability to any one bigram. Now if I increased that count, so it wasn't the 1 we had but something more like 10,000 then the probability becomes more and more uniform. It turns out that the gradient based framework has an equivalent to smoothing. In particular, think about the `W`'s, which we initialised randomly but we could have also initialised all of `W`'s entries to be 0. If they were all 0, then the logits would become all 0 and then exponentiating those logits would turn them all into 1 and then the probabilities turn out to be exactly uniform. So basically, when W is all equal to each other, especially 0, then the probabilities come out to be completely uniform. So trying to incentivise W to be near 0 is basically equivalent to label smoothing and the more you incentivise that in the loss function the more smooth distribution you are going to aschieve. 
+
+This brings us to something called **Regularisation**, where we can actually augment the loss function to have a small component that we call a regularisation loss. In particular what we are going to do, is we are going to take `W` and we can square all of its entries and then sum them. `(W**2).sum()`. Because we are squaring there will be no more signs anymore, the way this works is you achieve zero loss if W is exactly or 0 but if W has non zero numbers you accumulate loss. So we can take that and we can add it onto this line:
+
+```python
+loss = -probs[torch.arange(num), ys].log().mean() + 0.01*(W**2).mean()
+```
+
+And actually instead of sum we will take a mean because otherwise the sum gets too large and it will affect the loss way too much, and we also multiply it by 0.01 and we have a regularisation loss here, you can choose whatever strength you would like. Now if we run this optimisation it has 2 components, not only is it trying to make all the probabilities work out but in addition to that there is an additional component that simultaneously tries to make W's zero, because if W's are non zero you feel a loss and so minimising this is to try to get W to tend towards zero. You can think of this as adding like a spring or gravity force that pushes W to be zero.
+
+---
+
+Okay and lastly, before I finish up this part, I want to sample from this neural net model:
+
+```python
+# finally, sample from the 'neural net' model
+g = torch.Generator().manual_seed(2147483647)
+
+for i in range(5):
+
+    out = []
+    ix = 0 
+    while True:
+        xenc = F.one_hot(torch.tensor([ix]), num_classes=27).float()
+        logits = xenc @ W
+        counts = logits.exp()
+        P = counts / counts.sum(1, keepdims=True)
+
+        ix = torch.multinomial(P, num_samples=1, replacement=True, generator=g).item()
+        out.append(itos[ix])
+        if ix == 0:
+            break
+    print(''.join(out))
+```
+
+This is similar to the code from before that we have already used, remember we sampled 5 times. First we take `ix` and we encode it into a one hot row of `xenc` which then multiplies our `W` (which really just plucks out the row of `W` corresponding to `ix`). Now we have our `logits` and then we normalise those `logits`, exponentiate to get counts and then normalise to get the distribution and then we can sample from the distribution. So if I run this:
+
+```python
+cexze.
+momasurailezitynn.
+konimittain.
+llayn.
+ka.
+```
+
+Kind of anticlimactic but we get the exact same result as we did when we sampled from the counting bigram model, that's because this is the exact same model.
+
+---
+
+Okay and that's it for part 1, I've covered a lot of ground, I learnt the bigram language model, I trained the model, I sampled from the model and I evaluated the quality of the model using the negative log likelihood of the loss. I also trained the model in two completely different ways that actually gave the same result. In the first way, I just counted up the frequency of all the bigrams and normalised and in the second way I used the negative log likelihood loss as a guide to optimising the counts matrix so that the loss is minimised in a gradient based framework. I realised that the second one of these, the gradient based framework is much more flexible, right now my neural network is super simple, it's taking a single previous character and taking it through a single linear layer to calculate the logits, this is about to complexify in part 2. I want to take more and more of these characters and feed them all into a neural net, however this NN will still output the exact same thing: logits. They will still be normalised in the exact same way, everything will stay identical its just that this NN will now complexify all the way to transformers.
+
+Thank you for reading :)
