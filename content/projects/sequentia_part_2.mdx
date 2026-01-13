@@ -1,0 +1,56 @@
+---
+title: "Sequentia: Part 2"
+publishedAt: "2026-01-13"
+summary: "to be determined"
+---
+
+This is the continuation of the implementation of sequentia, in part 1 I implemented the bigram language model. I implemented is both using counts as well as a super simple neural network that is a single linear layer. The way I approached it was by just looking at the single previous character and predicted the distribution for the character that would go next, I did this by taking counts and normalising them into probabilities so that each row in our table summed up to 1. This is fine if you only have 1 character of previous context, it works and it's approachable. The problem with this model is that the predictions are not very good *because you only take one character of context*, so the model didn't produce very name like sounding things.
+
+The problem with this approach though is that if I were to take more context into account when predicting the next character in a sequence things quickly blow up, and the size of our table (see below) that we had grows, in fact it would grow exponentially with the length of the context:
+
+![figure-2](/content/sequentia/figure-2.png)
+
+This is because if we only take a single character at a time thats 27 possibilities of context, but if we take 2 characters in a pass and try to predict the third one, suddenly the number of rows in the matrix is 27x27, so there's 729 possibilities for what could have come in the context. If we take 3 characters as the context then we would have around 20 thousand possibilities, and so that's just way too many rows to have in our matrix, the whole thing just kind of explodes and doesn't work very well.
+
+That's why now I'm going to implement a multilayer perceptron model to predict the next character in a sequence and the modelling approach that I'm going to adopt follows this paper: [A Neural Probabilistic Language Model](https://www.jmlr.org/papers/volume3/bengio03a/bengio03a.pdf). This isn't the very first paper that proposed the use of MLPs or neural networks to predict the next character or token in a sequence but it's definitely one that was very influencial around its time. So first I'll have a look and understand it and then I'll implement it.
+
+---
+
+Now, this paper has 19 pages so I'm not going to go into full details here but I recommend you read it. In the introduction they describe the exact same problem I just described and then to address it they propose the following model. 
+
+By the way, keep in mind that I am building a character level language model so I'm working on the level of characters, in this paper however they have a vocabulary of 17,000 possible words and they instead build a word level language model, I'm going to still stick with the characters but take the same modelling approach.
+
+They propose to take every one of those 17,000 words and associate to each word a 30 dimensional feature vector, so every word is now embedded into a 30 dimensional space. So we have 17,000 points/vectors in a 30 dimensional space, you might imagine  that it is very crowded as that is a lot of points for a very small space. In the beginning these words are initialised completely randomly, they are spread out at random, but then these embeddings of these words get tuned using backprop. So during the course of training this neural network these points or vectors are basically going to move around in this space and you might imagine for example that words that have a similar meaning or are synonyms of each other might end up in a very similar part of the space. Conversely, words that have very different meanings would end up being far from each other.
+
+Otherwise, the modelling approach is identical to ours, they are using a multilayer neural network to predict the next word given the previous words and to train the neural network they are maximising the log likelihood of the training data just like I did in the previous part. Let's go over a concrete example of their intuition from the paper.
+
+**Why does it work?**
+
+Suppose for example that you are trying to predict:
+
+>A dog was running in a ______.
+
+Suppose also that that exact phrase has never occurred in the training data and here we are at test time (later, so when the model is deployed somewhere) and it's trying to make a sentence and because it's never encountered this exact phrase in the training set we are **out of distribution**. Essentially, we don't have any fundamental reason to suspect what might come next. However, this approach allows us to get around that because maybe you didn't see the exact phrase "A dog was running in a ______" but maybe you have seen similar phrases like for example "The dog was running in a ______" and maybe the network has learnt that "A" and "The" are frequently interchangeable with each other. So maybe it took the embedding for "A" and the embedding for "The" and put them nearby each other in the space, so we can like this transfer knowledge through these embeddings and we can generalise in that way.
+
+Similarly, the network could know that cats and dogs are animals and they co-occur in lots of contexts and so even though it hasn't seen some exact phrase we can transfer knowledge through the embedding space and generalise to novel scenarios.
+
+Let's now go down a little to this diagram of the neural network that appears in the paper:
+
+![paper_mlp](/content/sequentia/paper_mlp.png)
+
+They have a nice diagram here and in this example we are taking 3 previous words and we are trying to predict the 4th word in a sequence. These 3 previous words (coming from our vocabulary of 17,000 possible words), every one of these are basically the index of the incoming word, because there are 17,000 this will be an integer between 0 and 16,999. There is also this lookup table that they call `C`, this lookup table is a matrix that is 17,000 by 30, so every index is plucking out a row of this embedding matrix so that each index is converted into the 30 dimensional vector that corresponds to the embedding vector for that word.
+
+So at the bottom we have the input layer of 30 neurons for 3 words making up 90 neurons in total. They also state that this matrix `C` is shared across all these words. So we are always indexing into the same matrix `C` over and over for each one of these words. 
+
+Next up is the hidden layer of this network, the size of this layer is a hyperparameter (a configuration setting chosen *before* training begins, controlling the learning process itself) it is a design choice up to the designer of the neural net, this can be as large as you'd like or as small as you'd like. I will go over multiple choices of the size of this hidden layer and evaluate how well each one works.
+
+So say there were 100 neurons here, all of them would be fully connected to the 90 numbers that make up the initial 3 input words, so this would be a fully connected layer. Then there is a tanh nonlinearity and then there's this output layer and because there are 17,000 possible words that could come next, this layer has 17,000 neurons and all of them are fully connected to all of the neurons in the hidden layer. So there's a lot of parameters here because there's a lot of words, most computation is here as this is the expensive layer. 
+
+So there are 17,000 logits here so on top of there we have this softmax layer, which I used in part 1, so every one of these logits is exponentiated and then everything is normalised to sum to 1 so that we have a nice probability distribution for the next word in the sequence.
+
+Now of course during training we actually have the label, we have the identity of the next word in the sequence. That word, or its index is used to pluck out the probability of that word and then we are maximising the probability of that word with respect to the parameters of this neural net. So the parameters are the weights and biases of this output layer, the weights and biases of this hidden layer and the embedding lookup table `C`, all of that is optimised using backpropogation. (Ignore the dashed arrows in the image, it represents a variation of a neural net that I'm not going to explore now)
+
+So that's the setup and now let's implement it!
+
+---
+

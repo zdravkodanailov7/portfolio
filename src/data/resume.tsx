@@ -153,7 +153,7 @@ export const DATA = {
   projects: [
     {
       title: "Sequentia: Part 1",
-      href: "/projects/sequentia",
+      href: "/projects/sequentia_part_1",
       dates: "Jan 2026",
       active: true,
       description:
@@ -167,7 +167,7 @@ export const DATA = {
         },
         {
           type: "Blog",
-          href: "/projects/sequentia",
+          href: "/projects/sequentia_part_1",
           icon: <NotebookIcon className="size-3" />,
         },
       ],
