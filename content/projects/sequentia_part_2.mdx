@@ -54,3 +54,473 @@ So that's the setup and now let's implement it!
 
 ---
 
+Ok so I'm starting a brand new jupyter notebook for this part.
+
+```python
+import torch
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+%matplotlib inline
+```
+
+Starting off by importing PyTorch as well as matplotlib so I can create figures.
+
+```python
+words = open('names.txt', 'r').read().splitlines()
+words[:8]
+```
+
+Then I'm reading all the names into a list of words like I did before and for now going to be using the first 8, keep in mind that there are around 32,000 in total.
+
+```python
+chars = sorted(list(set(''.join(words))))
+stoi = {s:i+1 for i,s in enumerate(chars)}
+stoi['.'] = 0
+itos = {i:s for s,i in stoi.items()}
+print(itos)
+```
+
+Here I am building out the vocabulary of characters and all the mappings from the characters as strings to integers and vice versa.
+
+Now the first thing that we want to do is we want to compile the dataset for the neural network.
+
+```python
+# build the dataset
+
+block_size = 3
+X, Y = [], []
+for w in words[:5]:
+    print(w)
+    context = [0] * block_size
+    for ch in w + '.':
+        ix = stoi[ch]
+        X.append(context)
+        Y.append(ix)
+        print(''.join(itos[i] for i in context), '--->', itos[ix])
+        context = context[1:] + [ix]
+
+X = torch.tensor(X)
+Y = torch.tensor(Y)
+```
+
+So this is the code used for the dataset creation, let's run it and then I'll explain how it works:
+
+```python
+emma
+... ---> e
+..e ---> m
+.em ---> m
+emm ---> a
+mma ---> .
+olivia
+... ---> o
+..o ---> l
+.ol ---> i
+oli ---> v
+liv ---> i
+ivi ---> a
+via ---> .
+ava
+... ---> a
+..a ---> v
+.av ---> a
+ava ---> .
+isabella
+... ---> i
+..i ---> s
+.is ---> a
+isa ---> b
+sab ---> e
+...
+sop ---> h
+oph ---> i
+phi ---> a
+hia ---> .
+```
+
+So first I defined something called `block_size` this is essentially the context length of how many characters do we take to predict the next one? In the example diagram from the paper they are using 3 characters to predict the 4th one so we have a block size of 3. Then I build out the `X` and `Y`, the `X` are the inputs to the neural net and the `Y` are the labels for each example inside `X`. Then I'm iterating over the first 5 words, for now this is just for efficiency and later on I'll use the entire training set. Then I'm printing a word, 'emma', and then I'm showing the 5 examples that we can generate out of the single word emma. So when we are given the context of `...` the first character in the sequence is `e`, in the second context the label is `m` and so on.
+
+The way this is built out is first we start with a padded context of just 0 tokens, then I iterate over all the characters, I get the character in a sequence and I build out the arrat `Y` of this current character and the array `X` which stores the current running context, then I print everything and finally I crop the context and enter the new character in the sequence, so this is kind of like a rolling window of context.
+
+Now we can change the block_size to like 4 and we get this:
+
+```python
+emma
+.... ---> e
+...e ---> m
+..em ---> m
+.emm ---> a
+emma ---> .
+olivia
+.... ---> o
+...o ---> l
+..ol ---> i
+.oli ---> v
+oliv ---> i
+livi ---> a
+ivia ---> .
+ava
+.... ---> a
+...a ---> v
+..av ---> a
+.ava ---> .
+isabella
+.... ---> i
+...i ---> s
+..is ---> a
+.isa ---> b
+isab ---> e
+...
+.sop ---> h
+soph ---> i
+ophi ---> a
+phia ---> .
+```
+
+And in this case we would be predicting the 5th character given the previous 4. I'll use 3 as the block_size so that I have something similar to what they use in the paper.
+
+So the dataset right now looks as follows:
+
+```python
+X.shape, X.dtype, Y.shape, Y.dtype
+```
+
+```python
+(torch.Size([32, 4]), torch.int64, torch.Size([32]), torch.int64)
+```
+
+From these 5 words, I have created a dataset of 32 examples, each input to the neural net is 3 integers and we also have a label that is also an integer `Y`. So `X` looks like this:
+
+```python
+tensor([[ 0,  0,  0,  0],
+        [ 0,  0,  0,  5],
+        [ 0,  0,  5, 13],
+        [ 0,  5, 13, 13],
+        [ 5, 13, 13,  1],
+        [ 0,  0,  0,  0],
+        [ 0,  0,  0, 15],
+        [ 0,  0, 15, 12],
+        [ 0, 15, 12,  9],
+        [15, 12,  9, 22],
+        [12,  9, 22,  9],
+        [ 9, 22,  9,  1],
+        [ 0,  0,  0,  0],
+        [ 0,  0,  0,  1],
+        [ 0,  0,  1, 22],
+        [ 0,  1, 22,  1],
+        [ 0,  0,  0,  0],
+        [ 0,  0,  0,  9],
+        [ 0,  0,  9, 19],
+        [ 0,  9, 19,  1],
+        [ 9, 19,  1,  2],
+        [19,  1,  2,  5],
+        [ 1,  2,  5, 12],
+        [ 2,  5, 12, 12],
+        [ 5, 12, 12,  1],
+...
+        [ 0,  0, 19, 15],
+        [ 0, 19, 15, 16],
+        [19, 15, 16,  8],
+        [15, 16,  8,  9],
+        [16,  8,  9,  1]])
+```
+
+These are the individual examples and then `Y` are the labels:
+
+```python
+tensor([ 5, 13, 13,  1,  0, 15, 12,  9, 22,  9,  1,  0,  1, 22,  1,  0,  9, 19,
+         1,  2,  5, 12, 12,  1,  0, 19, 15, 16,  8,  9,  1,  0])
+```
+
+So now given this let's now write a neural network that takes these X's and predicts the Y's.
+
+First let's build the embedding lookup table `C`. So we have 27 possible characters and we are going to embed them in a lower dimensional space, in the paper for example they have 17,000 words and they embed them in a space as small as 30, so they cram 17,000 words into a 30 dimensional space. In our case we have only 27 possible characters so let's cram them into something as small as a 2 dimensional space. `C = torch.randn((27, 2))` so this lookup table will be random numbers, we'll have 27 rows and 2 columns, so each one of those 27 characters will have a 2 dimensional embedding.
+
+```python
+tensor([[ 0.1337, -0.3022],
+        [-1.3790,  0.5350],
+        [-0.4888,  0.3871],
+        [-1.0085, -0.3628],
+        [-0.7620,  0.2085],
+        [-2.1093, -0.5866],
+        [-0.3420, -0.5095],
+        [-0.2952,  1.9254],
+        [-1.4044,  0.9889],
+        [ 0.5346, -0.5347],
+        [-0.2993,  1.2175],
+        [-2.3203, -1.8098],
+        [-0.4861,  0.1701],
+        [-1.6238,  0.3501],
+        [ 2.7832,  2.1153],
+        [ 0.2209, -0.1851],
+        [ 1.0563,  0.1075],
+        [ 0.4634,  0.8870],
+        [-0.3711,  1.1748],
+        [-0.4258,  1.7453],
+        [-0.4970, -0.2934],
+        [ 0.9061,  1.1547],
+        [ 1.4147,  0.6171],
+        [-2.0147,  0.8542],
+        [-0.3040,  0.3283],
+        [ 0.0795, -1.3960],
+        [-0.5026,  0.0559]])
+```
+
+So that's our matrix `C` of embeddings in the beginning initialised randomly. Now before we embed all of the integers inside the input `X` using this lookup table `C` let me actually just try to embed a single lookupu integer like let's say 5, so we get a sense of how this works. One way this works is we can take the C and index into row 5 `C[5` and that gives us `tensor([-0.5042,  0.8381])` a vector, the fifth row of C, this is one way to do it. The other way, that was actually used in part 1 of sequentia, that was seemingly different but actually identical. Essentially, I took the integers and used one hot encoding to first encode them. `F.one_hot(5, num_classes=27)`, so that's the 26 dimensional vector of all 0s except the 5th bit is turned on. Now this actually doesn't work:
+
+```python
+---------------------------------------------------------------------------
+TypeError                                 Traceback (most recent call last)
+Cell In[17], line 1
+----> 1 F.one_hot(5, num_classes=27)
+
+TypeError: one_hot(): argument 'input' (position 1) must be Tensor, not int
+```
+
+The reason is that this input wants to be a torch.tensor, `F.one_hot(torch.tensor(5), num_classes=27)` now this outputs the correct one hot vector:
+
+```python
+tensor([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0])
+```
+
+The fifth dimension is 1 and the shape of this is 27. So now if we take this one hot vector and we multiply it by `C` then what would you expect to get?
+
+Well firstly, we should expect to get an error:
+
+```python
+---------------------------------------------------------------------------
+RuntimeError                              Traceback (most recent call last)
+Cell In[19], line 1
+----> 1 F.one_hot(torch.tensor(5), num_classes=27) @ C
+
+RuntimeError: expected m1 and m2 to have the same dtype, but got: long long != float
+```
+
+The error might be a little confusing but the problem here is that one hot, the data type of it is long:
+
+```python
+F.one_hot(torch.tensor(5), num_classes=27).dtype
+```
+
+```python
+torch.int64
+```
+
+It's a 64 bit integer but our `C` is a float tensor, PyTorch doesn't know how to multiply an int with a float so we have to explicitly cast the one hot vector to a float so that we can multiply, and once we do that we get this:
+
+```python
+tensor([-0.5042,  0.8381])
+```
+
+The output here is actually identical, this is because of the way matrix multiplication here works. This tells me that the first part of the diagram up above, the first piece of it (the embedding of the integer) can either be thought of the integer indexing into a lookup table `C` but equivalently we can also think of this little piece here as the first layer of this bigger neural net. This layer has neurons that have no nonlinearity, theres no tanh, and their weight matrix is just `C`, then we are encoding integers into one hot and feeding them into a neural net and this first layer basically embeds them.
+
+So those are two equivalent ways of doing the same thing, I'm just going to index, `C[5]`, becuase its much much faster and discard the latter interpretation of one hot inputs into neural nets.
+
+Embedding a single integer like 5 is easy enough, we can simply ask PyTorch to retrieve the row of index 5 of `C`, but how do we simultaneously embed all of these 32x3 integers stored in array `X`. Luckily PyTorch indexing is fairly flexible and quite powerful, we can actually index using lists, for example we can the rows 5, 6 and 7 like this `C[[5, 6, 7]]` and it will just work:
+
+```python
+tensor([[-0.5042,  0.8381],
+        [ 1.7272,  0.5446],
+        [-0.6218,  1.0026]])
+```
+
+So we can index with a list, it also doesn't have to just be a list we can actually index with a tensor of integers: `C[torch.tensor([5, 6, 7])]`, we can also repeat row 7 for example and retrieve it multiple times `C[torch.tensor([5, 6, 7, 7, 7, 7])]`: 
+
+```python
+tensor([[-0.5042,  0.8381],
+        [ 1.7272,  0.5446],
+        [-0.6218,  1.0026],
+        [-0.6218,  1.0026],
+        [-0.6218,  1.0026],
+        [-0.6218,  1.0026]])
+```
+
+So here we are indexing with a one dimensional tensor of integers but we can also index with multi dimensional tensor of integers meaning we can simply do `C[X]` and it will just work:
+
+```python
+tensor([[[-1.5906,  2.1496],
+         [-1.5906,  2.1496],
+         [-1.5906,  2.1496],
+         [-1.5906,  2.1496]],
+
+        [[-1.5906,  2.1496],
+         [-1.5906,  2.1496],
+         [-1.5906,  2.1496],
+         [-0.5042,  0.8381]],
+
+        [[-1.5906,  2.1496],
+         [-1.5906,  2.1496],
+         [-0.5042,  0.8381],
+         [-0.7761, -0.4062]],
+
+        [[-1.5906,  2.1496],
+         [-0.5042,  0.8381],
+         [-0.7761, -0.4062],
+         [-0.7761, -0.4062]],
+
+        [[-0.5042,  0.8381],
+         [-0.7761, -0.4062],
+         [-0.7761, -0.4062],
+         [ 0.3950, -0.4444]],
+...
+
+        [[-0.6436, -0.4006],
+         [-0.1759, -0.8072],
+         [-1.3593,  1.4689],
+         [ 0.3950, -0.4444]]])
+```
+
+And the shape of this is `torch.Size([32, 3, 2])`, so 32x3 which is the original shape and now for every one of those 32x3 integers we've retrieved the embedding vector as well. So for example, `X[13, 2]` the 2nd dimension at index 13 is: `tensor(1)` the integer 1 and so if we do `C[X]` and then we index into `C[X][13, 2]` then we get the embedding `tensor([ 0.7906, -0.3438])` and you can verify that at `C[1]` which is the integer at that location is indeed `tensor([ 0.7906, -0.3438])` equal to that. So basically, long story short, PyTorch indexing is awesome and to embed simultaneously all of the integers in `X` we can simply do `emb = C[X]` and that is our embedding.
+
+Now let's construct the hidden layer. `W1` will be the weights which will be initialised randomly and the number of inputs to this layer is going to be 3x2 because we have 2 dimensional embeddings and we have 3 of them, so the number of inputs is 6, and the number of neurons in this layer is a variable that is up to us, let's use 100 as an example. Then biases `b` will also be initialised randomly as an example and we will just need 100 of them.
+
+```python
+W1 = torch.randn((6, 100))
+b1 = torch.randn((100))
+```
+
+Normally, we would take the input, in this case that's embedding and we would like to multiply it with these weights and then add the biases, this is roughly what we want to do, but the problem here is that these embeddings are stacked up in the dimensions of this input tensor, so this matrix multiplication `emb @ W1 + b1` will not work because `emb` is a shape 32x3x2 and it cannot be multilplied by 6x100, so somehow we need to concatenate the inputs so that we can do that matrix multiplication. So how do we tranform our 32x3x2 into a 32x6 so that we can actually perform the multiplication over here.
+
+There are usually many ways of implementing anything you would like to do in torch, some of them will be faster, better, shrter etc. and this is because torch is a very large library and its got lots and lots of functions. One of the things that we can do is [torch.cat](https://docs.pytorch.org/docs/stable/generated/torch.cat.html) and this concatenates the given sequence of tensors in a given dimension.
+
+So again we want to retrieve those three parts and concatenate them, `emb[:, 0, :]` this plucks out all of the 32 embeddings of just the first word, we want that guy, we want this guy: `emb[:, 1, :]` as well as this guy: `emb[:, 2, :]`, these are the three pieces individually. Then we treat this as a sequence and we `torch.cat` on that sequence, but then we also have to tell it along which dimension to concatenate, so in this case all of these are 32x2 and we want to not concat over the first dimension the 32 but rather the second one, so its index would be 1.
+
+```python
+tensor([[ 0.4444, -0.1867,  0.4444, -0.1867,  0.4444, -0.1867],
+        [ 0.4444, -0.1867,  0.4444, -0.1867,  1.6435,  1.8505],
+        [ 0.4444, -0.1867,  1.6435,  1.8505,  0.4650, -0.0786],
+        [ 1.6435,  1.8505,  0.4650, -0.0786,  0.4650, -0.0786],
+        [ 0.4650, -0.0786,  0.4650, -0.0786,  0.7906, -0.3438],
+        [ 0.4444, -0.1867,  0.4444, -0.1867,  0.4444, -0.1867],
+        [ 0.4444, -0.1867,  0.4444, -0.1867, -0.8392, -0.6142],
+        [ 0.4444, -0.1867, -0.8392, -0.6142, -0.9680,  0.3780],
+        [-0.8392, -0.6142, -0.9680,  0.3780,  0.0479,  0.8135],
+        [-0.9680,  0.3780,  0.0479,  0.8135, -1.1759,  1.5259],
+        [ 0.0479,  0.8135, -1.1759,  1.5259,  0.0479,  0.8135],
+        [-1.1759,  1.5259,  0.0479,  0.8135,  0.7906, -0.3438],
+        [ 0.4444, -0.1867,  0.4444, -0.1867,  0.4444, -0.1867],
+        [ 0.4444, -0.1867,  0.4444, -0.1867,  0.7906, -0.3438],
+        [ 0.4444, -0.1867,  0.7906, -0.3438, -1.1759,  1.5259],
+        [ 0.7906, -0.3438, -1.1759,  1.5259,  0.7906, -0.3438],
+        [ 0.4444, -0.1867,  0.4444, -0.1867,  0.4444, -0.1867],
+        [ 0.4444, -0.1867,  0.4444, -0.1867,  0.0479,  0.8135],
+        [ 0.4444, -0.1867,  0.0479,  0.8135,  0.3600, -1.0378],
+        [ 0.0479,  0.8135,  0.3600, -1.0378,  0.7906, -0.3438],
+        [ 0.3600, -1.0378,  0.7906, -0.3438,  2.0007,  0.6971],
+        [ 0.7906, -0.3438,  2.0007,  0.6971,  1.6435,  1.8505],
+        [ 2.0007,  0.6971,  1.6435,  1.8505, -0.9680,  0.3780],
+        [ 1.6435,  1.8505, -0.9680,  0.3780, -0.9680,  0.3780],
+        [-0.9680,  0.3780, -0.9680,  0.3780,  0.7906, -0.3438],
+...
+        [ 0.4444, -0.1867,  0.3600, -1.0378, -0.8392, -0.6142],
+        [ 0.3600, -1.0378, -0.8392, -0.6142,  1.0230, -0.0592],
+        [-0.8392, -0.6142,  1.0230, -0.0592, -0.7218, -0.3401],
+        [ 1.0230, -0.0592, -0.7218, -0.3401,  0.0479,  0.8135],
+        [-0.7218, -0.3401,  0.0479,  0.8135,  0.7906, -0.3438]])
+```
+
+This is our concatenated result and its shape is 32x6, exactly as we'd like. The issue is that this code above is kind of ugly because it is not genaralisable, if we change the block_size it would not work. Torch comes to rescue again because there is a function called [unbind](https://docs.pytorch.org/docs/stable/generated/torch.unbind.html) which removes a tensor dimension and returns a tuple of all slices along a given dimension already without it. So when we call `torch.unbind(emb)` and pass in the 2nd dimension it gives us a list of tensors exactly equivalent to what we had previously. So the neater version of the code is: 
+
+```python
+torch.cat(torch.unbind(emb, 1), 1)
+```
+
+Now it doens't matter if we have block_size 3, 5, 10 or anything this will just work. So this is one way to do it.
+
+However, it turns out that in this case there's actually a significantly better and more efficient way!
+
+---
+
+Let's create an array here of elements from 0 to 17, `a = torch.arange(18)`:
+
+```python
+tensor([ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17])
+```
+
+and the shape of this is `torch.Size([18])`, it turns out that we can very quickly re represent this as different sized n dimensional tensors, we can do this by calling `a.view()`, and we can say that this shouldn't be a single vector of 18 but rather a 2x9 vector: `a.view(2, 9)`:
+
+```python
+tensor([[ 0,  1,  2,  3,  4,  5,  6,  7,  8],
+        [ 9, 10, 11, 12, 13, 14, 15, 16, 17]])
+```
+
+or alternatively a 9x2 tensor: `a.view(9, 2)`:
+
+```python
+tensor([[ 0,  1],
+        [ 2,  3],
+        [ 4,  5],
+        [ 6,  7],
+        [ 8,  9],
+        [10, 11],
+        [12, 13],
+        [14, 15],
+        [16, 17]])
+```
+
+as long as the total number multiplies to be the same this will just work and in PyTorch this `view()` operation is extremely efficient and the reason for that is that in each tensor there is something called `storage()`. The storage is just the numbers as a 1 dimensional vector, always, this is how this tensor is represented in the computer's memory. When we call the view operation we are manipulating some of the attributes that dictate how this 1 dimensional sequence is interpreted to be an `n` dimensional tensor. So when we call the view operation no memory is being changed, copied, moved or created, the storage is identical, but when we call `view` some of the internal attributes of this tensor are being manipulated and changed. In particular there's something called storage offset, strides and shapes and those are manipulated so that this 1 dimensional sequence of bytes is seen as different n dimensional arrays.
+
+There is a [blog post](https://blog.ezyang.com/2019/05/pytorch-internals/) that goes in depth with the PyTorch internals that is a good read but for now all that we need to know is that `view()` is an extremely efficient operation.
+
+So we just need to ask PyTorch to view our `emb` as a 32x6 like this: `emb.view(32, 6)` and the way that this does it just so happens to be that each two numbers get stacked the same way the concatenation method does it too, and we can verify that this gives the exact same result with this:
+
+```python
+torch.cat(torch.unbind(emb, 1), 1) == emb.view(32, 6)
+```
+
+which spits out
+
+```python
+tensor([[True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+...
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True],
+        [True, True, True, True, True, True]])
+```
+
+we see it in this representation because it is an element-wise eqauls, it is clearly visible that they are all `True`.
+
+Long story short, I can actually come here and simply use it:
+
+```python
+emb.view(32, 6) @ W1 + b1
+```
+
+```python
+tensor([[-1.4762, -0.1819, -1.9316,  ..., -1.1295,  0.9217,  0.1658],
+        [-3.4858, -1.4528, -1.3809,  ..., -3.0438,  0.9032, -5.8463],
+        [-1.7364, -0.4168, -3.1396,  ...,  0.8445, -3.1651,  1.1465],
+        ...,
+        [ 1.9684,  0.6379, -1.3668,  ...,  1.5785, -0.2257,  4.3608],
+        [-3.0535, -0.2721, -2.2716,  ..., -3.8546,  4.3116, -1.6676],
+        [-0.1189,  1.7893, -1.8674,  ..., -0.3386, -0.5712, -1.4834]])
+```
+
+This multiplication now works and gives us the hidden states that we are after. I'll store the result in `h` and `h.shape` is now `torch.Size([32, 100])`, the 100 dimensional activations for every one of our 32 examples.
