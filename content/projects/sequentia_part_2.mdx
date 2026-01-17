@@ -1380,3 +1380,74 @@ After letting that run five times I achieve a loss of the entire dataset of 2.35
 After a single run with the learning rate decay I achieve a loss of 2.2911, of course this is janky and not exactly how you would train it in production but this is roughly what you are going through. You first find a decent learning rate using the approach that I showed you, then start with that learning rate and train for a while and then at the end people like to do a learning rate decay where you decay the learning rate by say a factor of 10 and you do a few more steps and then you get a trained network, roughly speaking.
 
 So after a couple more runs I am now at 2.2874 and dramatically improved from the bigram language model using this simple neural net as described from the paper using our 3481 parameters.
+
+---
+
+Now, there is something we have to be careful with, I said that we have a better model because we are achieving a lower loss, 2.2874 is lower than 2.45 with the bigram model previously. Now that's not exactly true, the reason is that this is a very small model, only 3481 parameters, but they can get bigger and bigger if that number goes up, there can be millions of parameters. Essentially, as the capacity of the neural network grows it becomes more and more capable of overfitting your training set, this means that the loss on the training set will become very very low, as low as 0, but all that the model is doing is memorising the training set verbatim.
+
+So if you take that model and it looks like its working really well but you try to sample from it, you will basically only get examples exactly as they are in the training set, you won't get any new data. In addition to that, if you try to evaluate the loss from some withheld names, not in the training set, you will see that the loss on those will be very high. So basically it's not a good model. 
+
+The standard in this field is to split up your data into 3 splits, the training split, the dev/validation split and the test split. Typically, it's 80%, 10%, 10% respectively. The training split is used to optimise the parameters of the model, just like we just did using gradient descent. The dev/validation split is used for development over all the hyperparameters of your model, so for example the size of our hidden layer, the size of the embedding, currently I'm using 100 and 2 respectively but we could use other numbers, could also be the strength of the regularisation, which I'm currently not using. There's lots of different hyperparameters and settings that go into defining a neural net and you can try many different variations of them and see whichever one works best on your validation split. 
+
+So the first split is used to train the parameters, the second split is used to train the hyperparameters and the test split is used to evaluate the performance of the model at the very end. So we are only evaluating the loss on the test split very few times because every single time you evaluate your test loss and you learn something from it, you are basically starting to also train on the test split, so then you would overfit to it as well.
+
+So let's also split up our data into train, dev and test splits, then we are going to train on training split and only evaluate on test very sparingly.
+
+So let's go back to where we built the dataset and put them into tensors. I'm going to convert that part into a function now:
+
+```python
+# build the dataset
+
+def build_dataset(words):
+    block_size = 3
+    X, Y = [], []
+    for w in words:
+
+        context = [0] * block_size
+        for ch in w + '.':
+            ix = stoi[ch]
+            X.append(context)
+            Y.append(ix)
+            context = context[1:] + [ix]
+
+    X = torch.tensor(X)
+    Y = torch.tensor(Y)
+    print(X.shape, Y.shape)
+    return X, Y
+
+import random
+random.seed(42)
+random.shuffle(words)
+n1 = int(0.8*len(words))
+n2 = int(0.9*len(words))
+
+Xtr, Ytr = build_dataset(words[:n1])
+Xdev, Ydev = build_dataset(words[n1:n2])
+Xte, Yte = build_dataset(words[n2:])
+```
+
+This function takes in some list of words and build the arrays `X` and `Y` for those words only, after that I randomly shuffly up all the words, I then set `n1` to be at the 80% mark of all the words and `n2` at the 90% mark. For example, if our list of words is 32,033 words long, then our `n1` is 25,626 and `n2` is 28,829.
+
+I then call that `build_dataset` function to first build the training set by indexing the words up to n1, so that will give us 25k training words. Then I'm going to have `n2 - n1 = 3203` validation examples and then `len(words) - n2 = 3204` examples in the test dataset. After running that:
+
+```python
+torch.Size([182625, 3]) torch.Size([182625])
+torch.Size([22655, 3]) torch.Size([22655])
+torch.Size([22866, 3]) torch.Size([22866])
+```
+
+Now I have Xs and Ys for all those three splits.
+
+Now, let's go back down to the training code, the dataset that we are now training is the training one `Xtr.shape, Ytr.shape`, with sizes like this `(torch.Size([182625, 3]), torch.Size([182625]))`, now reset the network and on training we only train using this new dataset, so update theose variables. I'll also update the learning rate to be 0.1 again too and train it for a bit. Now when I evaluate, I'll use the dev dataset:
+
+```python
+emb = C[Xdev]
+h = torch.tanh(emb.view(-1, 6) @ W1 + b1)
+logits = h @ W2 + b2
+loss = F.cross_entropy(logits, Ydev)
+```
+
+Ok, after training the model a couple times, and then a couple more times with the decayed learning rate I'm getting 2.2679 loss on the dev dataset. So when the neural network was training it hasn't seen those dev examples, it hasn't optimised on them and yet when we evaluate the loss on this dev dataset we actually get a pretty decent loss. If I look at what the loss is on the training set: 2.2671 I see that they are about equal, so we are not overfitting, this model is not powerful enough to be just purely memorising the data and so far we are actually underfitting because these two numbers are roughly equal. This typically means is that our network is very tiny, we expect to make performance improvements by scaling up the size of this neural net, so let's do that now!
+
+---
+
