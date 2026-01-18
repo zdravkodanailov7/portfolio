@@ -1451,3 +1451,50 @@ Ok, after training the model a couple times, and then a couple more times with t
 
 ---
 
+The easiest way to increase the size of a neural net is to come to the hidden layer, which currently has 100 neurons, and let's just bump this up to 300 neurons, this would mean we need to update our biases to also be 300 and the inputs into the final layer to be 300:
+
+```python
+g = torch.Generator().manual_seed(2147483647)
+C = torch.randn((27, 2), generator=g)
+W1 = torch.randn((6, 300), generator=g)
+b1 = torch.randn((300), generator=g)
+W2 = torch.randn((300, 27), generator=g)
+b2 = torch.randn((27), generator=g)
+parameters = [C, W1, b1, W2, b2]
+```
+
+Let's now initialise the NN, we now have 10281 parameters. Now in the training code, let's track stats again but also let's keep track of the steps this time and let's run this to optimise the neural net:
+
+```python
+lri = []
+lossi = []
+stepi = []
+
+for i in range(30000):
+
+    # minibatch construc
+    ix = torch.randint(0, Xtr.shape[0], (32, ), generator=g)
+    
+    # forward pass
+    emb = C[Xtr[ix]]
+    h = torch.tanh(emb.view(-1, 6) @ W1 + b1)
+    logits = h @ W2 + b2
+    loss = F.cross_entropy(logits, Ytr[ix])
+
+
+    for p in parameters:
+        p.grad = None
+    loss.backward()
+
+
+    lr = 0.1
+    for p in parameters:
+        p.data += -lr * p.grad
+
+    # track stats
+    stepi.append(i)
+    lossi.append(loss.item())
+```
+
+Once, this is done I'm going to plot the steps against the loss with `plt.plot(stepi, lossi)` which gives me this:
+
