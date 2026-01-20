@@ -1498,3 +1498,110 @@ for i in range(30000):
 
 Once, this is done I'm going to plot the steps against the loss with `plt.plot(stepi, lossi)` which gives me this:
 
+![step_loss_func.png](/content/sequentia/step_loss_func.png)
+
+This is the loss function and how it's being optimised, there is quite a bit of thickness to the line and that's because we are optimising over these mini batches and they create some noise. After that first run, we are at 2.4961 loss in the dev set, that's probably because we made it bigger and so it will take longer for this neural net to converge, so let's continue training. 
+
+One possibility is also that the batch size is so low that we have way too much noise in the training, so we may want to increase the batch size so that we have a bit more correct gradient and we are not thrashing too much and we can optimise more properly. 
+
+After some more training it seems like it's not lowering the loss as much as I expected. One other concern is that even though we have made the hidden layer much bigger it could be that the bottleneck of the network right now are the embeddings that are 2 dimensional, it could be that we are cramming way too much characters into just 2 dimensions and the neural net is not able to really use that space effectively.
+
+One more thing that I want to do is to visualise the embedding vectors for these characters before we scale up the embedding size from 2, because we'd like to make this bottleneck potentially go away and once I make this greater than 2 we won't be able to visualise them. After training somre more and running the evaluation on the training and the dev sets I got these numbers respectively: 2.2070 and 2.2205. This tells me that we are not improving much more and so maybe the bottleneck now is the character embedding size which is currently 2.
+
+```python
+plt.figure(figsize=(8, 8))
+plt.scatter(C[:, 0].data, C[:, 1].data, s=200)
+for i in range(C.shape[0]):
+    plt.text(C[i,0].item(), C[i,1].item(), itos[i], ha='center', va='center', color='white')
+plt.grid('minor')
+```
+
+So here is the code that creates the figure and then visualise the embeddings that were trained by the neural net on these characters. Right now the embedding size is just 2, so we can visualise all the characters with the x and the y coordinates as the two embedding locations for each of these characters:
+
+![emb_viz.png](/content/sequentia/emb_viz.png)
+
+So here what we see is actually kind of interesting, the network has basically learned to separate out the characters and cluster them a little bit, so for example you see how the vowels are all clustered up in the bottom left, this tells me that the neural net treats these as very similar, almost like interchangeable. A point that is really far away is like q, q is treated as an exception, it has a special embedding vector, similarly "." goes the same way, its all the way at the bottom. So it's kind of interesting that there is a little bit of structure after the training and its definitely not random and they kind of make sense.
+
+Ok, now I will scale up the embedding size and won't be able to visualise it directly but I expect that because we are underfitting and we already made the hidden layer much bigger which did not sufficiently improve the loss we're thinking that the constraint to better performance right now could be our embedding vectors. So let's make them bigger.
+
+---
+
+So if I go up to where we initialise our parameters and we instead of having 2 dimensional embedding instead make them 10 dimensional, for each word. Then W1 would receive 3x10 so 30 inputs will go into the hidden layer, let's also bring the hidden layer down from 300 to 200 neurons:
+
+```python
+g = torch.Generator().manual_seed(2147483647)
+C = torch.randn((27, 10), generator=g)
+W1 = torch.randn((30, 200), generator=g)
+b1 = torch.randn((200), generator=g)
+W2 = torch.randn((200, 27), generator=g)
+b2 = torch.randn((27), generator=g)
+parameters = [C, W1, b1, W2, b2]
+```
+
+So now the total number of parameters is: 11897, slightly larger. Then set the learning rate back to 0.1, also we are currently hard coding 6 in the training code, of course in production we don't want to hard code magic numbers but for now it's fine, instead of 6 it should now also be 30, and I'm going to run this for 50,000 iterations.
+
+After running that and logging the log loss against the steps I see this graph:
+
+![log_loss.png](/content/sequentia/log_loss.png)
+
+The loss on the training set is 2.3366 and te dev set is 2.3590, so far so good. Let's now decrease the learning rate by a factor of 10. After training that I get 2.1780 on trainig set and 2.2053 on dev set. 
+
+You see now how the training and the dev set are starting to slowly move apart now so maybe we are getting the sense that the neural net or that the number of parameters are large enough that we are slowly starting to overfit.
+
+After running it 2 more times I got training loss of 2.1562 and dev loss of 2.1875.
+
+Ok, there's many ways to go from here, we can continue tuning the optimisation, continue playing with the hyperparameters of the neural net or increase the number of characters that we are taking in as an input, so instead of just 3, could take in more and that could further improve the loss.
+
+---
+
+So now, to sample from the model:
+
+```python
+# sample from the 'neural net' model
+g = torch.Generator().manual_seed(2147483647)
+
+for _ in range(20):
+    out = []
+    context = [0] * block_size
+    while True:
+        emb = C[torch.tensor([context])]
+        h = torch.tanh(emb.view(1, -1) @ W1 + b1)
+        logits = h @ W2 + b2
+        probs = F.softmax(logits, dim=-1)
+        ix = torch.multinomial(probs, num_samples=1, generator=g).item()
+        context = context[1:] + [ix]
+        out.append(itos[ix])
+        if ix == 0:
+            break
+
+    print(''.join(out))
+```
+
+So we are going to generate 20 samples and at first we begin with all dots and then until we generate another dot (0th character) we embed the current context. 
+
+```python
+ceri.
+kaemonurailah.
+tyhamellistana.
+nylandr.
+kaida.
+samiyah.
+javar.
+gotti.
+moziellah.
+jacoteda.
+kaley.
+maside.
+enkavion.
+ryslam.
+huniden.
+tahlasu.
+jade.
+breenley.
+alaisa.
+jana.
+```
+
+Now these are much more name-like when compared to the results from sequentia part 1, "jana", "alaisa", "kaley", we are definitely makeing progress but we can still improve on this model quite a lot, so onto part 3.
+
+Thanks for reading :)
